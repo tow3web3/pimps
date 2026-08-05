@@ -19,7 +19,9 @@ const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 // the terminal.
 const TTL = 90_000;
 const UNSEEN_EXPIRY = 30 * 60_000;
-const MAX_TOKENS = 500;
+// measured 2026-08-05: ~1050 pump.fun mints sit above the $100K floor —
+// the cap must stay comfortably above the real population
+const MAX_TOKENS = 1200;
 
 let cache: { at: number; body: { tokens: TokenInfo[]; solUsd: number } } | null = null;
 let inflight: Promise<{ tokens: TokenInfo[]; solUsd: number }> | null = null;
@@ -106,7 +108,7 @@ async function dsTokenPairs(mints: string[]): Promise<DsPair[]> {
 async function sweepPumpfun(): Promise<number> {
   // walk the mcap-sorted listing until it drops under the floor
   const coins: PfCoin[] = [];
-  for (let offset = 0; offset < 1500; offset += 50) {
+  for (let offset = 0; offset < 4000; offset += 50) {
     const page = await pumpfunPage(offset);
     if (page.length === 0) break;
     for (const c of page) {
@@ -126,7 +128,13 @@ async function sweepPumpfun(): Promise<number> {
   const mints = [...byMint.keys()];
   for (let i = 0; i < mints.length; i += 30) {
     const chunk = mints.slice(i, i + 30);
-    const pairs = await dsTokenPairs(chunk);
+    let pairs = await dsTokenPairs(chunk);
+    if (pairs.length === 0) {
+      // deep chunks hit DexScreener's burst limiter — one patient retry
+      // recovers most of them; the rolling union catches the rest next sweep
+      await sleep(1_100);
+      pairs = await dsTokenPairs(chunk);
+    }
 
     // deepest SOL-quoted pair per mint — that is the pool a fill prices against
     const best = new Map<string, DsPair>();
@@ -169,7 +177,7 @@ async function sweepPumpfun(): Promise<number> {
       );
       merged++;
     }
-    await sleep(200);
+    await sleep(350);
   }
   return merged;
 }

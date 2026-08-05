@@ -172,9 +172,32 @@ export default function CandleChart({
   // paint the live tick onto the current candle
   useEffect(() => {
     const series = seriesRef.current;
-    const last = lastBarRef.current;
-    if (!series || !last || !livePriceUsd || livePriceUsd <= 0) return;
+    if (!series || !livePriceUsd || livePriceUsd <= 0) return;
     const secs = TIMEFRAMES[tfIdx].secs;
+
+    // no indexed history for this pool? bootstrap a live-only candle — a chart
+    // that builds itself in real time beats an empty panel
+    if (!lastBarRef.current) {
+      const bucket0 = (Math.floor(Date.now() / 1000 / secs) * secs) as UTCTimestamp;
+      const seed: Bar = {
+        time: bucket0,
+        open: livePriceUsd,
+        high: livePriceUsd,
+        low: livePriceUsd,
+        close: livePriceUsd,
+      };
+      try {
+        series.applyOptions({ priceFormat: { type: "price", ...pricePrecision(livePriceUsd) } });
+        series.setData([seed]);
+        lastBarRef.current = seed;
+        setEmpty(false);
+      } catch {
+        return;
+      }
+      return;
+    }
+
+    const last = lastBarRef.current;
     // clamp to the series clock — a client clock behind the data source must
     // merge into the last candle, never emit an out-of-order time (silent no-op)
     const clientBucket = (Math.floor(Date.now() / 1000 / secs) * secs) as UTCTimestamp;
@@ -227,7 +250,9 @@ export default function CandleChart({
         <div ref={containerRef} className="absolute inset-0" />
         {empty && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="mono text-xs text-[var(--ink-3)]">no chart data for this pool yet</span>
+            <span className="mono text-xs text-[var(--ink-3)] animate-pulse">
+              waiting for the first live tick…
+            </span>
           </div>
         )}
       </div>
