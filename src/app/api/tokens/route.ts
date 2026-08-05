@@ -133,19 +133,27 @@ async function sweepFresh(): Promise<number> {
   return enrichAndMerge(coins);
 }
 
+let walkCounter = 0;
+
 /** DexScreener enrichment shared by both sweeps, 30 mints per call */
 async function enrichAndMerge(coins: PfCoin[]): Promise<number> {
   if (coins.length === 0) return 0;
   const byMint = new Map(coins.map((c) => [c.mint, c]));
   let merged = 0;
   const mints = [...byMint.keys()];
-  for (let i = 0; i < mints.length; i += 30) {
-    const chunk = mints.slice(i, i + 30);
+  const chunks: string[][] = [];
+  for (let i = 0; i < mints.length; i += 30) chunks.push(mints.slice(i, i + 30));
+  // ROTATE the processing order each walk — if the tail of the batch hits the
+  // rate limiter, it must be a different tail every time, so the rolling
+  // union converges to full coverage instead of keeping a systematic hole
+  const shift = chunks.length > 0 ? walkCounter++ % chunks.length : 0;
+  const ordered = [...chunks.slice(shift), ...chunks.slice(0, shift)];
+
+  for (const chunk of ordered) {
     let pairs = await dsTokenPairs(chunk);
     if (pairs.length === 0) {
-      // deep chunks hit DexScreener's burst limiter — one patient retry
-      // recovers most of them; the rolling union catches the rest next sweep
-      await sleep(1_100);
+      // patient retry outside the burst window
+      await sleep(2_500);
       pairs = await dsTokenPairs(chunk);
     }
 
@@ -190,7 +198,7 @@ async function enrichAndMerge(coins: PfCoin[]): Promise<number> {
       );
       merged++;
     }
-    await sleep(350);
+    await sleep(1_000);
   }
   return merged;
 }
