@@ -54,9 +54,9 @@ function Callout({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function Whitepaper() {
+export default async function Whitepaper() {
   const dd = ((1 - RULES.failFloor / RULES.startBalance) * 100).toFixed(0);
-  const { gfMint } = getConfig();
+  const { gfMint } = await getConfig();
 
   return (
     <div className="min-h-dvh">

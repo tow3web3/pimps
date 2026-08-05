@@ -1,7 +1,7 @@
 // On-chain verification of entry payments. The client sends only a signature;
 // the amount, destination and signer are read from the chain itself.
 
-import { db } from "./db";
+import { sql } from "./sql";
 import { getConfig, gfPriceUsd } from "./config";
 import { entryFeeGfUsd, RULES } from "@/lib/rules";
 
@@ -13,8 +13,8 @@ function rpcUrl(): string {
   return key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : PUBLIC_RPC;
 }
 
-export function treasuryWallet(): string {
-  return getConfig().treasuryWallet;
+export async function treasuryWallet(): Promise<string> {
+  return (await getConfig()).treasuryWallet;
 }
 
 export function expectedUsd(method: "usdc" | "gf" | "free"): number {
@@ -40,25 +40,34 @@ export async function verifyEntryPayment(
   const amountUsd = expectedUsd(method);
 
   if (method === "free") {
-    db.prepare(
-      "INSERT INTO payments(tx_sig, wallet, method, amount_usd, verified, ts) VALUES(?,?,?,?,1,?)",
-    ).run(`free-${wallet}-${Date.now()}`, wallet, "free", 0, Date.now());
+    await sql`
+      INSERT INTO payments(tx_sig, wallet, method, amount_usd, verified, ts)
+      VALUES (${`free-${wallet}-${Date.now()}`}, ${wallet}, 'free', 0, 1, ${Date.now()})
+    `;
     return "verified";
   }
 
-  const cfg = getConfig();
+  const cfg = await getConfig();
   const treasury = cfg.treasuryWallet;
   if (!treasury) {
-    db.prepare(
-      "INSERT INTO payments(tx_sig, wallet, method, amount_usd, verified, ts) VALUES(?,?,?,?,0,?)",
-    ).run(`sim-${wallet}-${Date.now()}`, wallet, "simulated", amountUsd, Date.now());
+    await sql`
+      INSERT INTO payments(tx_sig, wallet, method, amount_usd, verified, ts)
+      VALUES (${`sim-${wallet}-${Date.now()}`}, ${wallet}, 'simulated', ${amountUsd}, 0, ${Date.now()})
+    `;
     return "simulated";
   }
 
   if (method === "gf" && !cfg.gfMint) throw new Error("the token is not live yet");
   if (!txSig) throw new Error("transaction signature required");
-  const used = db.prepare("SELECT 1 FROM payments WHERE tx_sig=?").get(txSig);
-  if (used) throw new Error("this transaction was already used for a seat");
+  // claim the signature FIRST: the primary key is what makes replaying a
+  // payment impossible even across concurrent serverless instances
+  const claimed = (await sql`
+    INSERT INTO payments(tx_sig, wallet, method, amount_usd, verified, ts)
+    VALUES (${txSig}, ${wallet}, ${method}, ${amountUsd}, 0, ${Date.now()})
+    ON CONFLICT(tx_sig) DO NOTHING
+    RETURNING tx_sig
+  `) as Array<Record<string, unknown>>;
+  if (claimed.length === 0) throw new Error("this transaction was already used for a seat");
 
   const res = await fetch(rpcUrl(), {
     method: "POST",
@@ -116,8 +125,6 @@ export async function verifyEntryPayment(
     }
   }
 
-  db.prepare(
-    "INSERT INTO payments(tx_sig, wallet, method, amount_usd, verified, ts) VALUES(?,?,?,?,1,?)",
-  ).run(txSig, wallet, method, amountUsd, Date.now());
+  await sql`UPDATE payments SET verified = 1 WHERE tx_sig = ${txSig}`;
   return "verified";
 }

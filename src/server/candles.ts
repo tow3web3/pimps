@@ -1,75 +1,61 @@
-// The candle economy: every upstream fetch is stored forever, the server
-// aggregates its OWN 1-minute candles from price ticks it already pays for,
-// and charts are served from SQLite first — upstream refreshes happen in the
-// background at most every 10 minutes per pool.
+// The candle economy: every upstream fetch is stored in Postgres forever, the
+// server aggregates its OWN 1-minute candles from price ticks it already pays
+// for, and charts are served from the database first.
 
-import { db } from "./db";
+import { ensureSchema, sql, type Row } from "./sql";
 import type { Candle } from "@/lib/types";
 
 const REFRESH_MS = 10 * 60_000;
 const SELF_RETENTION_MS = 48 * 3600_000;
 
-const upsertSelf = db.prepare(`
-  INSERT INTO candles(pool, tf_key, time, open, high, low, close, volume)
-  VALUES(?, 'self:1m', ?, ?, ?, ?, ?, 0)
-  ON CONFLICT(pool, tf_key, time) DO UPDATE SET
-    high = MAX(high, excluded.high),
-    low = MIN(low, excluded.low),
-    close = excluded.close
-`);
-const insertFetched = db.prepare(`
-  INSERT INTO candles(pool, tf_key, time, open, high, low, close, volume)
-  VALUES(?,?,?,?,?,?,?,?)
-  ON CONFLICT(pool, tf_key, time) DO UPDATE SET
-    open=excluded.open, high=excluded.high, low=excluded.low,
-    close=excluded.close, volume=excluded.volume
-`);
-const readCandles = db.prepare(
-  "SELECT time, open, high, low, close, volume FROM candles WHERE pool=? AND tf_key=? ORDER BY time DESC LIMIT 350",
-);
-const readMeta = db.prepare("SELECT fetched_at FROM candle_meta WHERE key=?");
-const writeMeta = db.prepare(
-  "INSERT INTO candle_meta(key, fetched_at) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET fetched_at=excluded.fetched_at",
-);
-
-let selfWrites = 0;
-
 /** called by the price feed — one tick becomes/extends the current 1m candle */
-export function recordTick(pool: string, priceUsd: number) {
+export async function recordTick(pool: string, priceUsd: number): Promise<void> {
   if (!pool || priceUsd <= 0) return;
   const bucket = Math.floor(Date.now() / 60_000) * 60;
-  upsertSelf.run(pool, bucket, priceUsd, priceUsd, priceUsd, priceUsd);
-  if (++selfWrites % 2_000 === 0) {
-    db.prepare("DELETE FROM candles WHERE tf_key='self:1m' AND time < ?").run(
-      Math.floor((Date.now() - SELF_RETENTION_MS) / 1000),
-    );
-  }
+  await sql`
+    INSERT INTO candles(pool, tf_key, time, open, high, low, close, volume)
+    VALUES (${pool}, 'self:1m', ${bucket}, ${priceUsd}, ${priceUsd}, ${priceUsd}, ${priceUsd}, 0)
+    ON CONFLICT(pool, tf_key, time) DO UPDATE SET
+      high = GREATEST(candles.high, excluded.high),
+      low = LEAST(candles.low, excluded.low),
+      close = excluded.close
+  `;
 }
 
-export function storeFetched(pool: string, tfKey: string, candles: Candle[]) {
+export async function storeFetched(
+  pool: string,
+  tfKey: string,
+  candles: Candle[],
+): Promise<void> {
   if (candles.length === 0) return;
-  const txn = db.transaction(() => {
-    for (const c of candles) {
-      insertFetched.run(pool, tfKey, c.time, c.open, c.high, c.low, c.close, c.volume);
-    }
-    writeMeta.run(`${pool}:${tfKey}`, Date.now());
-    const cutoff = candles[candles.length - 1].time - 500 * bucketSecsOf(tfKey);
-    db.prepare("DELETE FROM candles WHERE pool=? AND tf_key=? AND time < ?").run(
-      pool,
-      tfKey,
-      cutoff,
-    );
-  });
-  txn();
+  // one multi-row insert: 300 round trips would blow the function timeout
+  const values = candles
+    .map(
+      (c) =>
+        `('${pool}','${tfKey}',${c.time},${c.open},${c.high},${c.low},${c.close},${c.volume || 0})`,
+    )
+    .join(",");
+  await sql.query(
+    `INSERT INTO candles(pool, tf_key, time, open, high, low, close, volume) VALUES ${values}
+     ON CONFLICT(pool, tf_key, time) DO UPDATE SET
+       open=excluded.open, high=excluded.high, low=excluded.low,
+       close=excluded.close, volume=excluded.volume`,
+  );
+  await markFetchAttempt(pool, tfKey);
 }
 
-export function markFetchAttempt(pool: string, tfKey: string) {
-  writeMeta.run(`${pool}:${tfKey}`, Date.now());
+export async function markFetchAttempt(pool: string, tfKey: string): Promise<void> {
+  await sql`
+    INSERT INTO candle_meta(key, fetched_at) VALUES (${`${pool}:${tfKey}`}, ${Date.now()})
+    ON CONFLICT(key) DO UPDATE SET fetched_at = excluded.fetched_at
+  `;
 }
 
-export function isFresh(pool: string, tfKey: string): boolean {
-  const row = readMeta.get(`${pool}:${tfKey}`) as { fetched_at: number } | undefined;
-  return !!row && Date.now() - row.fetched_at < REFRESH_MS;
+export async function isFresh(pool: string, tfKey: string): Promise<boolean> {
+  const rows = (await sql`
+    SELECT fetched_at FROM candle_meta WHERE key = ${`${pool}:${tfKey}`}
+  `) as Row[];
+  return rows.length > 0 && Date.now() - Number(rows[0].fetched_at) < REFRESH_MS;
 }
 
 function bucketSecsOf(tfKey: string): number {
@@ -79,17 +65,31 @@ function bucketSecsOf(tfKey: string): number {
 }
 
 /** stored upstream candles + own 1m ticks rolled up to the same buckets */
-export function readMerged(pool: string, tf: string, agg: number): Candle[] {
+export async function readMerged(pool: string, tf: string, agg: number): Promise<Candle[]> {
+  await ensureSchema();
   const tfKey = `${tf}:${agg}`;
-  const stored = (readCandles.all(pool, tfKey) as Candle[]).reverse();
+  const rows = (await sql`
+    SELECT tf_key, time, open, high, low, close, volume FROM candles
+    WHERE pool = ${pool} AND tf_key IN (${tfKey}, 'self:1m')
+    ORDER BY time DESC LIMIT 800
+  `) as Row[];
+
+  const toCandle = (r: Row): Candle => ({
+    time: Number(r.time),
+    open: Number(r.open),
+    high: Number(r.high),
+    low: Number(r.low),
+    close: Number(r.close),
+    volume: Number(r.volume),
+  });
+
+  const stored = rows.filter((r) => r.tf_key === tfKey).map(toCandle).reverse();
+  if (tf === "day") return stored.slice(-350);
+
+  const selfRows = rows.filter((r) => r.tf_key === "self:1m").map(toCandle).reverse();
+  if (selfRows.length === 0) return stored.slice(-350);
 
   const secs = bucketSecsOf(tfKey);
-  if (tf === "day") return stored;
-
-  const selfRows = (readCandles.all(pool, "self:1m") as Candle[]).reverse();
-  if (selfRows.length === 0) return stored;
-
-  // roll our 1m candles into the requested buckets
   const buckets = new Map<number, Candle>();
   for (const c of selfRows) {
     const t = Math.floor(c.time / secs) * secs;
@@ -108,4 +108,16 @@ export function readMerged(pool: string, tf: string, agg: number): Candle[] {
   for (const c of stored) byTime.set(c.time, c);
 
   return [...byTime.values()].sort((a, b) => a.time - b.time).slice(-350);
+}
+
+/** housekeeping, called from the cron route */
+export async function pruneCandles(): Promise<void> {
+  await sql`
+    DELETE FROM candles WHERE tf_key = 'self:1m' AND time < ${Math.floor(
+      (Date.now() - SELF_RETENTION_MS) / 1000,
+    )}
+  `;
+  await sql`DELETE FROM mark_wanted WHERE wanted_at < ${Date.now() - 30 * 60_000}`;
+  await sql`DELETE FROM sessions WHERE expires_at < ${Date.now()}`;
+  await sql`DELETE FROM auth_nonces WHERE expires_at < ${Date.now()}`;
 }

@@ -1,27 +1,14 @@
-import { db } from "./db";
+import { ensureSchema, kvGet, kvSet } from "./sql";
 import { RULES } from "@/lib/rules";
 
-// Runtime configuration. Values live in SQLite, fall back to env, and take
-// effect on the NEXT request — no rebuild, no restart. This exists so the $GF
-// mint can be pasted minutes before launch while the site is serving traffic.
+// Runtime configuration. Values live in Postgres, fall back to env, and take
+// effect on the NEXT request — no redeploy. This exists so the $GF mint can be
+// pasted minutes before launch while the site is serving traffic.
 
 export interface RuntimeConfig {
-  /** wallet that receives entry fees */
   treasuryWallet: string;
-  /** $GF mint address — empty until the token launches */
   gfMint: string;
-  /** $GF decimals, read on-chain when the mint is set */
   gfDecimals: number;
-}
-
-const read = db.prepare("SELECT value FROM kv WHERE key=?");
-const write = db.prepare(
-  "INSERT INTO kv(key, value, updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
-);
-
-function dbGet(key: string): string | null {
-  const row = read.get(`cfg:${key}`) as { value: string } | undefined;
-  return row?.value ?? null;
 }
 
 const PUBKEY_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -33,7 +20,7 @@ let warned = false;
  * and leak the key into an address field, so it is refused loudly.
  */
 function safeAddress(value: string, label: string): string {
-  const v = value.trim();
+  const v = (value ?? "").trim();
   if (!v) return "";
   if (!PUBKEY_RE.test(v)) {
     if (!warned) {
@@ -49,22 +36,25 @@ function safeAddress(value: string, label: string): string {
   return v;
 }
 
-export function getConfig(): RuntimeConfig {
+export async function getConfig(): Promise<RuntimeConfig> {
+  await ensureSchema();
+  const [treasury, mint, decimals] = await Promise.all([
+    kvGet("cfg:treasuryWallet"),
+    kvGet("cfg:gfMint"),
+    kvGet("cfg:gfDecimals"),
+  ]);
   return {
-    treasuryWallet: safeAddress(
-      dbGet("treasuryWallet") ?? process.env.TREASURY_WALLET ?? "",
-      "TREASURY_WALLET",
-    ),
-    gfMint: safeAddress(dbGet("gfMint") ?? process.env.GF_MINT ?? RULES.token.mint ?? "", "GF_MINT"),
-    gfDecimals: Number(dbGet("gfDecimals") ?? process.env.GF_DECIMALS ?? 6),
+    treasuryWallet: safeAddress(treasury ?? process.env.TREASURY_WALLET ?? "", "TREASURY_WALLET"),
+    gfMint: safeAddress(mint ?? process.env.GF_MINT ?? RULES.token.mint ?? "", "GF_MINT"),
+    gfDecimals: Number(decimals ?? process.env.GF_DECIMALS ?? 6),
   };
 }
 
-export function setConfig(patch: Partial<RuntimeConfig>) {
-  const now = Date.now();
+export async function setConfig(patch: Partial<RuntimeConfig>): Promise<void> {
+  await ensureSchema();
   for (const [k, v] of Object.entries(patch)) {
     if (v === undefined || v === null) continue;
-    write.run(`cfg:${k}`, String(v), now);
+    await kvSet(`cfg:${k}`, String(v));
   }
 }
 

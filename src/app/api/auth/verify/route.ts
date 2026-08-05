@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   if (typeof wallet !== "string" || typeof signature !== "string") {
     return NextResponse.json({ error: "invalid payload" }, { status: 400 });
   }
-  const token = verifyAndCreateSession(wallet, signature);
+  const token = await verifyAndCreateSession(wallet, signature);
   if (!token) return NextResponse.json({ error: "signature rejected" }, { status: 401 });
 
   const res = NextResponse.json({ wallet });

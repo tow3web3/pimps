@@ -11,6 +11,6 @@ export async function POST(req: NextRequest) {
   if (typeof wallet !== "string" || wallet.length < 32 || wallet.length > 50) {
     return NextResponse.json({ error: "invalid wallet" }, { status: 400 });
   }
-  const nonce = issueNonce(wallet);
+  const nonce = await issueNonce(wallet);
   return NextResponse.json({ nonce, message: loginMessage(wallet, nonce) });
 }

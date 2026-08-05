@@ -4,10 +4,10 @@ import { getConfig } from "@/server/config";
 export const dynamic = "force-dynamic";
 
 // Public runtime config, read fresh on every request so a launch-day change
-// reaches every open browser within seconds. No secrets are exposed here:
-// the treasury address is public by nature, the mint is public by nature.
+// reaches every open browser within seconds. No secrets: the treasury address
+// and the mint are public by nature.
 export async function GET() {
-  const c = getConfig();
+  const c = await getConfig();
   return NextResponse.json({
     treasuryWallet: c.treasuryWallet,
     gfMint: c.gfMint,

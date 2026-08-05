@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
-  if (token) destroySession(token);
+  if (token) await destroySession(token);
   const res = NextResponse.json({ ok: true });
   res.cookies.delete(SESSION_COOKIE);
   return res;

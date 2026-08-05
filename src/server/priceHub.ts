@@ -1,19 +1,15 @@
-// ONE price loader for the whole site. Clients never trigger an upstream call:
-// they read from this in-memory store and register interest. A single server
-// loop refreshes the most-wanted pairs. 1 visitor or 1000 = the same API cost.
+// ONE upstream price fetch for the whole fleet. On a single server this was an
+// interval; on serverless there is no shared memory, so coordination moves to
+// Postgres: marks live in a table, and a row-level lock decides which instance
+// pays for the refresh. 1 visitor or 1000, on 1 instance or 50: same API cost.
 
+import { claimLock, ensureSchema, sql, type Row } from "./sql";
 import { recordTick } from "./candles";
 import type { TokenInfo } from "@/lib/types";
 
 const WSOL = "So11111111111111111111111111111111111111112";
 const MAX_HOT = 30; // DexScreener batch limit
-const INTERVAL_MS = 3_000;
-
-const store = new Map<string, TokenInfo>(); // by pairAddress
-const wanted = new Map<string, number>(); // pairAddress -> last requested at
-let solUsd = 0;
-let source: "helius" | "dexscreener" = "dexscreener";
-let loop: ReturnType<typeof setInterval> | null = null;
+const STALE_MS = 3_000;
 
 interface DsPair {
   pairAddress: string;
@@ -28,7 +24,9 @@ interface DsPair {
   info?: { imageUrl?: string };
 }
 
-async function heliusOverlay(mints: string[]): Promise<{ prices: Record<string, number>; solUsd: number } | null> {
+async function heliusOverlay(
+  mints: string[],
+): Promise<{ prices: Record<string, number>; solUsd: number } | null> {
   const key = process.env.HELIUS_API_KEY;
   if (!key) return null;
   try {
@@ -60,110 +58,132 @@ async function heliusOverlay(mints: string[]): Promise<{ prices: Record<string, 
   }
 }
 
-async function refresh() {
-  // the hot set: pairs asked for most recently, capped at one batch
-  const now = Date.now();
-  for (const [pair, at] of wanted) if (now - at > 5 * 60_000) wanted.delete(pair);
-  const hot = [...wanted.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, MAX_HOT)
-    .map(([pair]) => pair);
+/** refresh the hot set — only ever called by the instance holding the lock */
+async function refresh(): Promise<void> {
+  const rows = (await sql`
+    SELECT pair FROM mark_wanted
+    WHERE wanted_at > ${Date.now() - 5 * 60_000}
+    ORDER BY wanted_at DESC LIMIT ${MAX_HOT}
+  `) as Row[];
+  const hot = rows.map((r) => r.pair as string);
   if (hot.length === 0) return;
 
-  try {
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${hot.join(",")}`, {
-      cache: "no-store",
-      headers: { accept: "application/json" },
+  const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${hot.join(",")}`, {
+    cache: "no-store",
+    headers: { accept: "application/json" },
+  });
+  if (!res.ok) return;
+  const json = await res.json();
+  const pairs: DsPair[] = json?.pairs ?? [];
+  if (pairs.length === 0) return;
+
+  let solUsd = 0;
+  let bestLiq = 0;
+  const fresh: TokenInfo[] = [];
+  for (const p of pairs) {
+    const priceSol = Number(p.priceNative);
+    const priceUsd = Number(p.priceUsd);
+    if (!priceSol || !priceUsd) continue;
+    const liq = p.liquidity?.usd ?? 0;
+    if (liq > bestLiq) {
+      bestLiq = liq;
+      solUsd = priceUsd / priceSol;
+    }
+    fresh.push({
+      mint: p.baseToken.address,
+      pairAddress: p.pairAddress,
+      symbol: p.baseToken.symbol,
+      name: p.baseToken.name,
+      imageUrl: p.info?.imageUrl,
+      priceSol,
+      priceUsd,
+      mcapUsd: p.marketCap ?? p.fdv ?? 0,
+      liqUsd: liq,
+      vol24Usd: p.volume?.h24 ?? 0,
+      chg5m: p.priceChange?.m5 ?? 0,
+      chg1h: p.priceChange?.h1 ?? 0,
+      chg24h: p.priceChange?.h24 ?? 0,
     });
-    if (!res.ok) return;
-    const json = await res.json();
-    const pairs: DsPair[] = json?.pairs ?? [];
-    let bestLiq = 0;
-
-    const fresh: TokenInfo[] = [];
-    for (const p of pairs) {
-      const priceSol = Number(p.priceNative);
-      const priceUsd = Number(p.priceUsd);
-      if (!priceSol || !priceUsd) continue;
-      const liq = p.liquidity?.usd ?? 0;
-      if (liq > bestLiq) {
-        bestLiq = liq;
-        solUsd = priceUsd / priceSol;
-      }
-      const info: TokenInfo = {
-        mint: p.baseToken.address,
-        pairAddress: p.pairAddress,
-        symbol: p.baseToken.symbol,
-        name: p.baseToken.name,
-        imageUrl: p.info?.imageUrl,
-        priceSol,
-        priceUsd,
-        mcapUsd: p.marketCap ?? p.fdv ?? 0,
-        liqUsd: liq,
-        vol24Usd: p.volume?.h24 ?? 0,
-        chg5m: p.priceChange?.m5 ?? 0,
-        chg1h: p.priceChange?.h1 ?? 0,
-        chg24h: p.priceChange?.h24 ?? 0,
-      };
-      fresh.push(info);
-    }
-
-    const h = await heliusOverlay(fresh.map((t) => t.mint));
-    if (h) {
-      source = "helius";
-      solUsd = h.solUsd;
-      for (const t of fresh) {
-        const usd = h.prices[t.mint];
-        if (usd > 0) {
-          t.priceUsd = usd;
-          t.priceSol = usd / h.solUsd;
-        }
-      }
-    } else {
-      source = "dexscreener";
-    }
-
-    for (const t of fresh) {
-      store.set(t.pairAddress, t);
-      try {
-        recordTick(t.pairAddress, t.priceUsd);
-      } catch {
-        /* candles must never break the feed */
-      }
-    }
-  } catch {
-    /* keep serving the last known marks */
   }
+
+  const h = await heliusOverlay(fresh.map((t) => t.mint));
+  if (h) {
+    solUsd = h.solUsd;
+    for (const t of fresh) {
+      const usd = h.prices[t.mint];
+      if (usd > 0) {
+        t.priceUsd = usd;
+        t.priceSol = usd / h.solUsd;
+      }
+    }
+  }
+
+  const now = Date.now();
+  for (const t of fresh) {
+    await sql`
+      INSERT INTO marks(pair, mint, data, updated_at)
+      VALUES (${t.pairAddress}, ${t.mint}, ${JSON.stringify(t)}, ${now})
+      ON CONFLICT(pair) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
+    `;
+  }
+  await sql`
+    INSERT INTO kv(key, value, updated_at) VALUES ('px:solUsd', ${String(solUsd)}, ${now})
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `;
+  await sql`
+    INSERT INTO kv(key, value, updated_at) VALUES ('px:source', ${h ? "helius" : "dexscreener"}, ${now})
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `;
+  await Promise.all(fresh.map((t) => recordTick(t.pairAddress, t.priceUsd).catch(() => {})));
 }
 
-function ensureLoop() {
-  if (loop) return;
-  void refresh();
-  loop = setInterval(() => void refresh(), INTERVAL_MS);
-}
-
-/** register interest and read whatever the hub already knows — no upstream call */
-export function getPrices(pairs: string[]): {
+/** register interest, refresh if we win the lock, and return what we know */
+export async function getPrices(pairs: string[]): Promise<{
   tokens: TokenInfo[];
   solUsd: number;
   source: "helius" | "dexscreener";
-} {
-  ensureLoop();
+}> {
+  await ensureSchema();
   const now = Date.now();
-  const tokens: TokenInfo[] = [];
-  for (const p of pairs) {
-    wanted.set(p, now);
-    const t = store.get(p);
-    if (t) tokens.push(t);
+
+  if (pairs.length > 0) {
+    // one statement, all pairs — a per-pair round trip would dominate latency
+    const values = pairs.map((p) => `('${p.replace(/'/g, "")}', ${now})`).join(",");
+    await sql.query(
+      `INSERT INTO mark_wanted(pair, wanted_at) VALUES ${values}
+       ON CONFLICT(pair) DO UPDATE SET wanted_at = EXCLUDED.wanted_at`,
+    );
   }
-  return { tokens, solUsd, source };
+
+  // exactly one instance refreshes per window; everyone else serves the marks
+  if (await claimLock("prices", STALE_MS)) {
+    await refresh().catch(() => {});
+  }
+
+  const rows = (await sql`
+    SELECT data FROM marks WHERE pair = ANY(${pairs})
+  `) as Row[];
+  const meta = (await sql`
+    SELECT key, value FROM kv WHERE key IN ('px:solUsd', 'px:source')
+  `) as Row[];
+  const solUsd = Number(meta.find((m) => m.key === "px:solUsd")?.value ?? 0);
+  const source = (meta.find((m) => m.key === "px:source")?.value ?? "dexscreener") as
+    | "helius"
+    | "dexscreener";
+
+  return { tokens: rows.map((r) => r.data as TokenInfo), solUsd, source };
 }
 
-/** seed the hub so the first visitor already has marks */
-export function seedPairs(pairs: string[]) {
-  const now = Date.now();
-  for (const p of pairs.slice(0, MAX_HOT)) {
-    if (!wanted.has(p)) wanted.set(p, now - 60_000); // lower priority than live views
-  }
-  ensureLoop();
+/** seed the wanted set so the first visitor already has marks */
+export async function seedPairs(pairs: string[]): Promise<void> {
+  if (pairs.length === 0) return;
+  const at = Date.now() - 60_000; // lower priority than a live view
+  const values = pairs
+    .slice(0, MAX_HOT)
+    .map((p) => `('${p.replace(/'/g, "")}', ${at})`)
+    .join(",");
+  await sql.query(
+    `INSERT INTO mark_wanted(pair, wanted_at) VALUES ${values}
+     ON CONFLICT(pair) DO NOTHING`,
+  );
 }

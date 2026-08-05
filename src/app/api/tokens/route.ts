@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { RULES } from "@/lib/rules";
-import { db } from "@/server/db";
+import { ensureSchema, kvGet, kvSet } from "@/server/sql";
 import { replaceEligible } from "@/server/eligibility";
 import { seedPairs } from "@/server/priceHub";
 import type { TokenInfo } from "@/lib/types";
@@ -32,14 +32,18 @@ const seen = new Map<string, { info: TokenInfo; reserve: number; lastSeen: numbe
 let lastSolUsd = 0;
 let rotation = 0;
 
-// ── restart resilience: the last good universe is persisted and reloaded, so
-// a reboot serves tokens instantly instead of an empty "scanning" terminal ──
-try {
-  const row = db.prepare("SELECT value FROM kv WHERE key='universe'").get() as
-    | { value: string }
-    | undefined;
-  if (row) {
-    const snap = JSON.parse(row.value) as { tokens: TokenInfo[]; solUsd: number };
+// ── cold-start resilience ───────────────────────────────────────────────
+// Serverless instances start empty and die often, so the universe is loaded
+// from the shared snapshot on first use rather than kept only in memory.
+let restored = false;
+
+async function restoreSnapshot() {
+  if (restored) return;
+  restored = true;
+  try {
+    const raw = await kvGet("universe");
+    if (!raw) return;
+    const snap = JSON.parse(raw) as { tokens: TokenInfo[]; solUsd: number };
     const now = Date.now();
     for (const t of snap.tokens ?? []) {
       seen.set(t.mint, { info: t, reserve: t.liqUsd, lastSeen: now });
@@ -47,18 +51,12 @@ try {
     lastSolUsd = snap.solUsd ?? 0;
     if (snap.tokens?.length) {
       replaceEligible(snap.tokens.map((t) => t.mint));
-      cache = { at: 0, body: { tokens: snap.tokens, solUsd: lastSolUsd } };
-      seedPairs(snap.tokens.slice(0, 30).map((t) => t.pairAddress));
-      console.log(`[tokens] restored ${snap.tokens.length} tokens from the last snapshot`);
+      cache = { at: Date.now(), body: { tokens: snap.tokens, solUsd: lastSolUsd } };
     }
+  } catch {
+    /* cold start with no snapshot — the first sweep fills it */
   }
-} catch {
-  /* cold start with no snapshot — the first sweep fills it */
 }
-
-const saveSnapshot = db.prepare(
-  "INSERT INTO kv(key, value, updated_at) VALUES('universe', ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
-);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -77,7 +75,7 @@ function mergeInfo(info: TokenInfo, reserve: number) {
   }
 }
 
-function buildUniverse(): { tokens: TokenInfo[]; solUsd: number } {
+async function buildUniverse(): Promise<{ tokens: TokenInfo[]; solUsd: number }> {
   const now = Date.now();
   for (const [mint, v] of seen) {
     if (now - v.lastSeen > UNSEEN_EXPIRY) seen.delete(mint);
@@ -88,12 +86,8 @@ function buildUniverse(): { tokens: TokenInfo[]; solUsd: number } {
     .slice(0, MAX_TOKENS);
   replaceEligible(tokens.map((t) => t.mint));
   if (tokens.length > 0) {
-    seedPairs(tokens.slice(0, 30).map((t) => t.pairAddress));
-    try {
-      saveSnapshot.run(JSON.stringify({ tokens, solUsd: lastSolUsd }), Date.now());
-    } catch {
-      /* snapshot is an optimisation, never a failure path */
-    }
+    await seedPairs(tokens.slice(0, 30).map((t) => t.pairAddress)).catch(() => {});
+    await kvSet("universe", JSON.stringify({ tokens, solUsd: lastSolUsd })).catch(() => {});
   }
   return { tokens, solUsd: lastSolUsd };
 }
@@ -150,7 +144,7 @@ async function dsTokenPairs(mints: string[]): Promise<DsPair[]> {
 // GeckoTerminal fallback, where provenance is otherwise unknown.
 
 /** full walk of the mcap-sorted listing — the expensive, exhaustive sweep */
-async function sweepPumpfun(): Promise<number> {
+async function sweepPumpfun(maxChunks = 999): Promise<number> {
   const coins: PfCoin[] = [];
   for (let offset = 0; offset < 4000; offset += 50) {
     const page = await pumpfunPage(offset);
@@ -162,10 +156,10 @@ async function sweepPumpfun(): Promise<number> {
     if ((tail?.usd_market_cap ?? 0) < RULES.minMcapUsd) break;
     await sleep(300);
   }
-  return enrichAndMerge(coins);
+  return enrichAndMerge(coins, maxChunks);
 }
 
-/** cheap 90s probe: the newest coins — catches graduates crossing the floor */
+/** cheap probe: the newest coins — catches graduates crossing the floor */
 async function sweepFresh(): Promise<number> {
   const page = await pumpfunPage(0, "created_timestamp");
   const coins = page.filter((c) => (c.usd_market_cap ?? 0) >= RULES.minMcapUsd && c.mint);
@@ -174,8 +168,10 @@ async function sweepFresh(): Promise<number> {
 
 let walkCounter = 0;
 
-/** DexScreener enrichment shared by both sweeps, 30 mints per call */
-async function enrichAndMerge(coins: PfCoin[]): Promise<number> {
+/** DexScreener enrichment shared by both sweeps, 30 mints per call.
+ *  `maxChunks` bounds the work so a serverless invocation cannot time out —
+ *  the rotation makes successive runs cover the rest. */
+async function enrichAndMerge(coins: PfCoin[], maxChunks = 999): Promise<number> {
   if (coins.length === 0) return 0;
   const byMint = new Map(coins.map((c) => [c.mint, c]));
   let merged = 0;
@@ -186,7 +182,7 @@ async function enrichAndMerge(coins: PfCoin[]): Promise<number> {
   // rate limiter, it must be a different tail every time, so the rolling
   // union converges to full coverage instead of keeping a systematic hole
   const shift = chunks.length > 0 ? walkCounter++ % chunks.length : 0;
-  const ordered = [...chunks.slice(shift), ...chunks.slice(0, shift)];
+  const ordered = [...chunks.slice(shift), ...chunks.slice(0, shift)].slice(0, maxChunks);
 
   for (const chunk of ordered) {
     let pairs = await dsTokenPairs(chunk);
@@ -341,45 +337,38 @@ async function sweepGecko(): Promise<void> {
 
 // ── route ────────────────────────────────────────────────────────────────
 
-let lastFullWalk = 0;
+// ── entry points ────────────────────────────────────────────────────────
+// GET is READ-ONLY: a serverless request must never wait behind a multi-minute
+// upstream walk. The walk runs in /api/cron/universe and publishes a snapshot.
 
-async function sweep(): Promise<{ tokens: TokenInfo[]; solUsd: number }> {
-  const full = Date.now() - lastFullWalk > 5 * 60_000;
+/** called by the cron: bounded slice of the exhaustive walk */
+export async function runUniverseSweep(full: boolean): Promise<number> {
+  await ensureSchema();
+  await restoreSnapshot();
   let merged = 0;
   try {
-    merged = full ? await sweepPumpfun() : await sweepFresh();
-    if (full && merged > 0) lastFullWalk = Date.now();
+    merged = full ? await sweepPumpfun(12) : await sweepFresh();
   } catch {
     merged = 0;
   }
   if (full && merged < 10) {
-    console.warn(`[tokens] pump.fun listing thin (${merged}) — running geckoterminal fallback`);
     await sweepGecko().catch(() => {});
   }
-  return buildUniverse();
+  const built = await buildUniverse();
+  return built.tokens.length;
 }
 
-function kickSweep(): Promise<{ tokens: TokenInfo[]; solUsd: number }> {
-  if (!inflight) {
-    inflight = sweep()
-      .then((fresh) => {
-        if (fresh.tokens.length > 0) cache = { at: Date.now(), body: fresh };
-        return fresh;
-      })
-      .finally(() => {
-        inflight = null;
-      });
-  }
-  return inflight;
-}
-
-// stale-while-revalidate: nobody ever waits behind a sweep once we have data —
-// the restored snapshot answers instantly and the refresh happens behind it
 export async function GET() {
-  if (cache) {
-    if (Date.now() - cache.at >= TTL) void kickSweep().catch(() => {});
-    return NextResponse.json(cache.body);
+  await ensureSchema();
+  await restoreSnapshot();
+  if (cache) return NextResponse.json(cache.body);
+
+  // nothing published yet (very first boot): one cheap probe so the terminal
+  // is not empty, then the cron takes over
+  try {
+    await sweepFresh();
+    return NextResponse.json(await buildUniverse());
+  } catch {
+    return NextResponse.json({ tokens: [], solUsd: 0 });
   }
-  const fresh = await kickSweep().catch(() => ({ tokens: [], solUsd: 0 }));
-  return NextResponse.json(fresh);
 }

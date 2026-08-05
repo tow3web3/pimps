@@ -51,8 +51,8 @@ async function refresh(pool: string, tf: string, agg: number): Promise<Candle[]>
   try {
     let candles = await throttled(() => fetchCandles(pool, tf, agg));
     if (candles.length === 0) candles = await throttled(() => fetchCandles(pool, tf, agg));
-    if (candles.length > 0) storeFetched(pool, tfKey, candles);
-    else markFetchAttempt(pool, tfKey); // 10 min before re-trying an empty pool
+    if (candles.length > 0) await storeFetched(pool, tfKey, candles);
+    else await markFetchAttempt(pool, tfKey); // 10 min before re-trying an empty pool
     return candles;
   } finally {
     inflight.delete(key);
@@ -68,9 +68,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ candles: [] }, { status: 400 });
   }
 
-  const stored = readMerged(pool, tf, agg);
+  const stored = await readMerged(pool, tf, agg);
 
-  if (isFresh(pool, `${tf}:${agg}`)) {
+  if (await isFresh(pool, `${tf}:${agg}`)) {
     return NextResponse.json({ candles: stored });
   }
 
@@ -82,5 +82,5 @@ export async function GET(req: NextRequest) {
 
   // first time this pool is charted — one paid fetch, stored forever
   await refresh(pool, tf, agg).catch(() => {});
-  return NextResponse.json({ candles: readMerged(pool, tf, agg) });
+  return NextResponse.json({ candles: await readMerged(pool, tf, agg) });
 }

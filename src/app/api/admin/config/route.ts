@@ -14,7 +14,7 @@ function authorized(req: NextRequest): boolean {
 
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const c = getConfig();
+  const c = await getConfig();
   const price = c.gfMint ? await gfPriceUsd(c.gfMint) : null;
   return NextResponse.json({ ...c, gfPriceUsd: price });
 }
@@ -59,11 +59,11 @@ export async function POST(req: NextRequest) {
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "nothing to update" }, { status: 400 });
   }
-  setConfig(patch);
+  await setConfig(patch);
 
   return NextResponse.json({
     ok: true,
-    config: getConfig(),
+    config: await getConfig(),
     gfPriceUsd: priceCheck,
     note:
       priceCheck === null && patch.gfMint

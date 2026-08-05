@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 let cache: { at: number; price: number } | null = null;
 
 export async function GET(req: NextRequest) {
-  const cfg = getConfig();
+  const cfg = await getConfig();
   if (!cfg.gfMint) return NextResponse.json({ error: "token not launched yet" }, { status: 400 });
 
   let price = cache && Date.now() - cache.at < 5_000 ? cache.price : null;
