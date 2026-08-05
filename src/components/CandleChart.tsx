@@ -31,15 +31,19 @@ type Bar = { time: UTCTimestamp; open: number; high: number; low: number; close:
 export default function CandleChart({
   pairAddress,
   livePriceUsd,
+  avgEntryUsd,
 }: {
   pairAddress: string;
   livePriceUsd?: number;
+  /** draws the "your entry" line, the way every trading app shows it */
+  avgEntryUsd?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const lastBarRef = useRef<Bar | null>(null);
+  const entryLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
   const fellBackRef = useRef<Set<string>>(new Set());
   const [tfIdx, setTfIdx] = useState(1); // 5m default
   const [empty, setEmpty] = useState(false);
@@ -168,6 +172,33 @@ export default function CandleChart({
       lastBarRef.current = null;
     };
   }, [pairAddress, tfIdx]);
+
+  // "your entry" price line — the single most useful marker on the chart
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    if (entryLineRef.current) {
+      try {
+        series.removePriceLine(entryLineRef.current);
+      } catch {
+        /* series was recreated under us */
+      }
+      entryLineRef.current = null;
+    }
+    if (!avgEntryUsd || avgEntryUsd <= 0) return;
+    try {
+      entryLineRef.current = series.createPriceLine({
+        price: avgEntryUsd,
+        color: "#a78bfa",
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "your entry",
+      });
+    } catch {
+      /* ignore: the line is decoration, never critical */
+    }
+  }, [avgEntryUsd, pairAddress, tfIdx]);
 
   // paint the live tick onto the current candle
   useEffect(() => {

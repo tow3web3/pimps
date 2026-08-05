@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMarket, useMarketFeed } from "@/lib/market";
+import { useGame } from "@/lib/store";
 import TopBar from "@/components/TopBar";
 import TokenList from "@/components/TokenList";
 import ChartHeader from "@/components/ChartHeader";
@@ -10,18 +11,28 @@ import TradePanel from "@/components/TradePanel";
 import PositionsPanel from "@/components/PositionsPanel";
 import ChallengeHUD from "@/components/ChallengeHUD";
 import GameOverlays from "@/components/GameOverlays";
+import MobileTradeBar from "@/components/MobileTradeBar";
+import LiveFeed, { FeedToasts } from "@/components/LiveFeed";
 
-type Tab = "market" | "chart" | "trade";
+type Tab = "market" | "chart" | "stats" | "tape";
 
 export default function TerminalPage() {
   useMarketFeed();
   const { tokens, selected } = useMarket();
+  const positions = useGame((s) => s.positions);
   const token = selected ? tokens[selected] : undefined;
 
-  // avoid a hydration mismatch with the persisted game store
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<Tab>("chart");
   useEffect(() => setMounted(true), []);
+
+  // the entry line the chart draws, in USD
+  const avgEntryUsd = useMemo(() => {
+    if (!token) return undefined;
+    const p = positions.find((x) => x.mint === token.mint);
+    if (!p || token.priceSol <= 0) return undefined;
+    return p.avgPriceSol * (token.priceUsd / token.priceSol);
+  }, [token, positions]);
 
   if (!mounted) {
     return (
@@ -38,7 +49,11 @@ export default function TerminalPage() {
       {token ? (
         <>
           <ChartHeader token={token} />
-          <CandleChart pairAddress={token.pairAddress} livePriceUsd={token.priceUsd} />
+          <CandleChart
+            pairAddress={token.pairAddress}
+            livePriceUsd={token.priceUsd}
+            avgEntryUsd={avgEntryUsd}
+          />
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center">
@@ -54,10 +69,15 @@ export default function TerminalPage() {
     <div className="h-dvh flex flex-col">
       <TopBar />
 
-      {/* ── desktop: three columns ── */}
+      {/* ── desktop ── */}
       <main className="hidden lg:grid flex-1 min-h-0 grid-cols-[250px_minmax(0,1fr)_320px] gap-3 p-3">
-        <div className="flex flex-col min-h-0">
-          <TokenList />
+        <div className="flex flex-col gap-3 min-h-0">
+          <div className="flex-1 min-h-0 flex flex-col">
+            <TokenList />
+          </div>
+          <div className="h-[240px] shrink-0 flex flex-col min-h-0">
+            <LiveFeed />
+          </div>
         </div>
         <div className="flex flex-col gap-3 min-h-0">
           {chartPanel}
@@ -71,51 +91,60 @@ export default function TerminalPage() {
         </div>
       </main>
 
-      {/* ── mobile / tablet: one pane at a time, switched from the bottom bar ── */}
-      <main className="lg:hidden flex-1 min-h-0 flex flex-col p-2 gap-2">
+      {/* ── mobile: chart fills the screen, trading never leaves it ── */}
+      <main
+        className={`lg:hidden flex-1 min-h-0 flex flex-col p-2 gap-2 ${
+          tab === "chart" ? "pb-[86px]" : "pb-2"
+        }`}
+      >
         {tab === "market" && (
           <div className="flex-1 min-h-0 flex flex-col">
             <TokenList />
           </div>
         )}
-        {tab === "chart" && (
-          <div className="flex-1 min-h-0 flex flex-col gap-2">
-            {chartPanel}
-            <div className="h-[190px] shrink-0 flex flex-col min-h-0">
+        {tab === "chart" && <div className="flex-1 min-h-0 flex flex-col">{chartPanel}</div>}
+        {tab === "stats" && (
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
+            <ChallengeHUD />
+            <div className="h-[260px] shrink-0 flex flex-col min-h-0">
               <PositionsPanel />
             </div>
           </div>
         )}
-        {tab === "trade" && (
-          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
-            <ChallengeHUD />
-            <TradePanel />
+        {tab === "tape" && (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <LiveFeed />
           </div>
         )}
       </main>
 
-      <nav className="lg:hidden shrink-0 grid grid-cols-3 border-t border-[var(--border)] bg-[var(--panel-solid)]">
+      {tab === "chart" && <MobileTradeBar />}
+
+      <nav className="lg:hidden shrink-0 grid grid-cols-4 border-t border-[var(--border)] bg-[var(--panel-solid)] z-40">
         {(
           [
-            ["market", "◧ markets"],
-            ["chart", "◪ chart"],
-            ["trade", "◈ trade"],
+            ["market", "◧", "markets"],
+            ["chart", "◪", "trade"],
+            ["stats", "◫", "stats"],
+            ["tape", "▤", "tape"],
           ] as const
-        ).map(([id, label]) => (
+        ).map(([id, icon, label]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`mono text-[11px] tracking-[0.12em] uppercase py-3.5 transition-colors ${
+            className={`flex flex-col items-center gap-0.5 py-2.5 transition-colors ${
               tab === id
-                ? "text-[var(--cyan)] bg-[rgba(34,211,238,0.07)] border-t-2 border-[var(--cyan)] -mt-[2px]"
+                ? "text-[var(--cyan)] bg-[rgba(34,211,238,0.07)]"
                 : "text-[var(--ink-3)]"
             }`}
           >
-            {label}
+            <span className="text-[15px] leading-none">{icon}</span>
+            <span className="mono text-[9px] tracking-[0.1em] uppercase">{label}</span>
           </button>
         ))}
       </nav>
 
+      <FeedToasts />
       <GameOverlays />
     </div>
   );

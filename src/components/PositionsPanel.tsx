@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useGame } from "@/lib/store";
 import { useMarket } from "@/lib/market";
 import { RULES } from "@/lib/rules";
-import { fmtQty, fmtSignedSol, fmtSol, fmtTime } from "@/lib/format";
+import { fmtMicro, fmtQty, fmtSignedSol, fmtSol, fmtTime, fmtUsd } from "@/lib/format";
+import { useMarket as useMarketStore } from "@/lib/market";
 import { TokenIcon } from "./TokenList";
 
 export default function PositionsPanel() {
@@ -50,8 +51,8 @@ export default function PositionsPanel() {
                   <tr className="text-[var(--ink-3)] text-left">
                     <th className="font-normal px-4 py-2">token</th>
                     <th className="font-normal px-2 py-2 text-right">qty</th>
-                    <th className="font-normal px-2 py-2 text-right">avg · sol</th>
-                    <th className="font-normal px-2 py-2 text-right">mark · sol</th>
+                    <th className="font-normal px-2 py-2 text-right">avg entry</th>
+                    <th className="font-normal px-2 py-2 text-right">now</th>
                     <th className="font-normal px-2 py-2 text-right">value</th>
                     <th className="font-normal px-2 py-2 text-right">upnl</th>
                     <th className="px-4 py-2" />
@@ -59,10 +60,14 @@ export default function PositionsPanel() {
                 </thead>
                 <tbody>
                   {game.positions.map((p) => {
-                    const mark = tokens[p.mint]?.priceSol ?? p.avgPriceSol;
+                    const t = tokens[p.mint];
+                    const mark = t?.priceSol ?? p.avgPriceSol;
                     const value = p.qty * mark;
                     const pnl = value * (1 - RULES.feeRate) - p.investedSol;
                     const pnlPct = p.investedSol > 0 ? (pnl / p.investedSol) * 100 : 0;
+                    // show entry and mark in USD: SOL prices of memecoins are
+                    // 1e-9 magnitudes and unreadable side by side
+                    const solUsd = t && t.priceSol > 0 ? t.priceUsd / t.priceSol : 0;
                     return (
                       <tr
                         key={p.mint}
@@ -79,10 +84,18 @@ export default function PositionsPanel() {
                           {fmtQty(p.qty)}
                         </td>
                         <td className="px-2 py-2.5 text-right text-[var(--ink-2)]">
-                          {p.avgPriceSol.toExponential(2)}
+                          {solUsd > 0 ? `$${fmtMicro(p.avgPriceSol * solUsd)}` : "—"}
                         </td>
-                        <td className="px-2 py-2.5 text-right text-[var(--ink-2)]">
-                          {mark.toExponential(2)}
+                        <td
+                          className={`px-2 py-2.5 text-right ${
+                            mark > p.avgPriceSol
+                              ? "text-up"
+                              : mark < p.avgPriceSol
+                                ? "text-down"
+                                : "text-[var(--ink-2)]"
+                          }`}
+                        >
+                          {solUsd > 0 ? `$${fmtMicro(mark * solUsd)}` : "—"}
                         </td>
                         <td className="px-2 py-2.5 text-right">{fmtSol(value, 3)}</td>
                         <td

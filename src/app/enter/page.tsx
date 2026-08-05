@@ -169,7 +169,7 @@ export default function EnterPage() {
         </Link>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 pb-16">
+      <main className="flex-1 flex items-center justify-center px-4 pt-6 pb-16">
         <div className="w-full max-w-2xl">
           <p className="panel-title text-center">
             {reentry ? `re-entry · attempt #${game.attempt + 1}` : "entry"}

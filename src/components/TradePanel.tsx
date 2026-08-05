@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMarket } from "@/lib/market";
 import { maxBuySol, useGame } from "@/lib/store";
 import { RULES } from "@/lib/rules";
-import { fmtCompact, fmtQty, fmtSignedSol, fmtSol, fmtUsd } from "@/lib/format";
+import { fmtCompact, fmtMicro, fmtQty, fmtSignedSol, fmtSol, fmtUsd } from "@/lib/format";
 
 export default function TradePanel() {
   const { tokens, selected, solUsd } = useMarket();
@@ -39,6 +39,10 @@ export default function TradePanel() {
 
   const posValueSol = position && token ? position.qty * token.priceSol : 0;
   const posPnl = position && token ? posValueSol * (1 - RULES.feeRate) - position.investedSol : 0;
+  const entryPct =
+    position && token && position.avgPriceSol > 0
+      ? ((token.priceSol - position.avgPriceSol) / position.avgPriceSol) * 100
+      : 0;
   const sellQty = position ? position.qty * fraction : 0;
   const sellGross = token ? sellQty * token.priceSol : 0;
   const sellProceeds = sellGross * (1 - RULES.feeRate);
@@ -200,6 +204,30 @@ export default function TradePanel() {
                     <span>holding</span>
                     <span className="text-[var(--ink)]">
                       {fmtQty(position.qty)} {token.symbol}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>avg entry</span>
+                    <span className="text-[var(--ink)]">
+                      {solUsd > 0 ? `$${fmtMicro(position.avgPriceSol * solUsd)}` : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>now</span>
+                    <span
+                      className={
+                        token.priceSol > position.avgPriceSol
+                          ? "text-up"
+                          : token.priceSol < position.avgPriceSol
+                            ? "text-down"
+                            : "text-[var(--ink)]"
+                      }
+                    >
+                      {fmtUsd(token.priceUsd)}
+                      <span className="text-[var(--ink-3)] ml-1.5">
+                        ({entryPct >= 0 ? "+" : ""}
+                        {entryPct.toFixed(1)}%)
+                      </span>
                     </span>
                   </div>
                   <div className="flex justify-between">

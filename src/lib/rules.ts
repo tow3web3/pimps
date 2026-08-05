@@ -50,7 +50,7 @@ export const RULES = {
 
   /** The platform token — paying the entry with it earns the discount */
   token: {
-    symbol: "GF",
+    symbol: "GETFUNDED",
     name: "GetFunded token",
     discount: 0.25,
     /** paste the real mint address once the token is deployed */
