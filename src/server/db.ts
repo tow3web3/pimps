@@ -106,6 +106,14 @@ CREATE TABLE IF NOT EXISTS candle_meta (
   fetched_at INTEGER NOT NULL
 );
 
+-- snapshots that must survive a restart (the token universe above all, so a
+-- reboot never shows an empty terminal while the first sweep runs)
+CREATE TABLE IF NOT EXISTS kv (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS withdrawals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   wallet TEXT NOT NULL,

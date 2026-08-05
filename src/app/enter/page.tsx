@@ -71,14 +71,26 @@ export default function EnterPage() {
   };
 
   // authenticated path: the SERVER verifies the payment and creates the run
-  const runServer = async () => {
+  const runServer = async (requireWallet: boolean) => {
     try {
       let wallet: string | null = useAuth.getState().wallet;
       if (!wallet) {
         setLines((l) => [...l, "connecting wallet…"]);
-        wallet = await connectWallet();
-        const w = wallet;
-        setLines((l) => [...l, `wallet ${w.slice(0, 4)}…${w.slice(-4)} signed in`]);
+        try {
+          wallet = await connectWallet();
+          const w = wallet;
+          setLines((l) => [...l, `wallet ${w.slice(0, 4)}…${w.slice(-4)} signed in`]);
+        } catch (e) {
+          // wallet refused / unavailable — a real payment cannot proceed, but a
+          // preview seat should never dead-end on it
+          if (requireWallet) throw e;
+          setLines((l) => [
+            ...l,
+            `⚠ wallet unavailable (${e instanceof Error ? e.message : "declined"}) — continuing in preview mode`,
+          ]);
+          runSimulated(method);
+          return;
+        }
       }
       let txSig: string | undefined;
       if (method !== "free" && live) {
@@ -90,11 +102,20 @@ export default function EnterPage() {
       }
       setLines((l) => [...l, "registering seat with the server…"]);
       const r = await serverEnter(method, txSig);
-      if (!r.ok) throw new Error(r.error);
+      if (!r.ok) {
+        // already seated? just take them to the desk instead of failing
+        if (/already active/i.test(r.error ?? "")) {
+          setLines((l) => [...l, "✓ you already have an active run — opening it"]);
+          timers.current.push(setTimeout(() => router.push("/terminal"), 700));
+          return;
+        }
+        throw new Error(r.error);
+      }
       setLines((l) => [...l, "✓ seat confirmed — the server is watching your run"]);
       timers.current.push(setTimeout(() => router.push("/terminal"), 900));
     } catch (e) {
       setLines((l) => [...l, `✕ ${e instanceof Error ? e.message : "failed"}`]);
+      setLines((l) => [...l, "tip: you can retry, or play the preview without a wallet"]);
       setProcessing(false);
     }
   };
@@ -103,10 +124,13 @@ export default function EnterPage() {
     if (processing) return;
     setProcessing(true);
     setLines([]);
-    // with a wallet available we always go through the server (real accounts);
-    // pure guests without any wallet extension keep the local simulation
-    const hasWallet = useAuth.getState().wallet !== null || getProvider() !== null;
-    if (hasWallet) void runServer();
+    // a wallet is REQUIRED only when real money must move (treasury configured
+    // and a paid lane). Otherwise: server account if already signed in, else
+    // the zero-friction local preview — never a dead end.
+    const signedIn = useAuth.getState().wallet !== null;
+    const needsRealPayment = live && method !== "free";
+    if (needsRealPayment) void runServer(true);
+    else if (signedIn || getProvider() !== null) void runServer(false);
     else runSimulated(method);
   };
 

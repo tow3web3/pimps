@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { RULES } from "@/lib/rules";
+import { db } from "@/server/db";
 import { replaceEligible } from "@/server/eligibility";
+import { seedPairs } from "@/server/priceHub";
 import type { TokenInfo } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +32,34 @@ const seen = new Map<string, { info: TokenInfo; reserve: number; lastSeen: numbe
 let lastSolUsd = 0;
 let rotation = 0;
 
+// ── restart resilience: the last good universe is persisted and reloaded, so
+// a reboot serves tokens instantly instead of an empty "scanning" terminal ──
+try {
+  const row = db.prepare("SELECT value FROM kv WHERE key='universe'").get() as
+    | { value: string }
+    | undefined;
+  if (row) {
+    const snap = JSON.parse(row.value) as { tokens: TokenInfo[]; solUsd: number };
+    const now = Date.now();
+    for (const t of snap.tokens ?? []) {
+      seen.set(t.mint, { info: t, reserve: t.liqUsd, lastSeen: now });
+    }
+    lastSolUsd = snap.solUsd ?? 0;
+    if (snap.tokens?.length) {
+      replaceEligible(snap.tokens.map((t) => t.mint));
+      cache = { at: 0, body: { tokens: snap.tokens, solUsd: lastSolUsd } };
+      seedPairs(snap.tokens.slice(0, 30).map((t) => t.pairAddress));
+      console.log(`[tokens] restored ${snap.tokens.length} tokens from the last snapshot`);
+    }
+  }
+} catch {
+  /* cold start with no snapshot — the first sweep fills it */
+}
+
+const saveSnapshot = db.prepare(
+  "INSERT INTO kv(key, value, updated_at) VALUES('universe', ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
+);
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function mergeInfo(info: TokenInfo, reserve: number) {
@@ -57,6 +87,14 @@ function buildUniverse(): { tokens: TokenInfo[]; solUsd: number } {
     .sort((x, y) => y.vol24Usd - x.vol24Usd)
     .slice(0, MAX_TOKENS);
   replaceEligible(tokens.map((t) => t.mint));
+  if (tokens.length > 0) {
+    seedPairs(tokens.slice(0, 30).map((t) => t.pairAddress));
+    try {
+      saveSnapshot.run(JSON.stringify({ tokens, solUsd: lastSolUsd }), Date.now());
+    } catch {
+      /* snapshot is an optimisation, never a failure path */
+    }
+  }
   return { tokens, solUsd: lastSolUsd };
 }
 
@@ -321,20 +359,27 @@ async function sweep(): Promise<{ tokens: TokenInfo[]; solUsd: number }> {
   return buildUniverse();
 }
 
+function kickSweep(): Promise<{ tokens: TokenInfo[]; solUsd: number }> {
+  if (!inflight) {
+    inflight = sweep()
+      .then((fresh) => {
+        if (fresh.tokens.length > 0) cache = { at: Date.now(), body: fresh };
+        return fresh;
+      })
+      .finally(() => {
+        inflight = null;
+      });
+  }
+  return inflight;
+}
+
+// stale-while-revalidate: nobody ever waits behind a sweep once we have data —
+// the restored snapshot answers instantly and the refresh happens behind it
 export async function GET() {
-  if (cache && Date.now() - cache.at < TTL) {
+  if (cache) {
+    if (Date.now() - cache.at >= TTL) void kickSweep().catch(() => {});
     return NextResponse.json(cache.body);
   }
-  if (!inflight) {
-    inflight = sweep().finally(() => {
-      inflight = null;
-    });
-  }
-  const fresh = await inflight;
-  // the union only shrinks by expiry — any non-empty result is cacheable;
-  // empty means cold start under a rate-limit, so let clients retry soon
-  if (fresh.tokens.length > 0) {
-    cache = { at: Date.now(), body: fresh };
-  }
+  const fresh = await kickSweep().catch(() => ({ tokens: [], solUsd: 0 }));
   return NextResponse.json(fresh);
 }
