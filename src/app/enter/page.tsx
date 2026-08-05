@@ -47,7 +47,13 @@ export default function EnterPage() {
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   const runSimulated = (m: Method) => {
-    const steps = stepsFor(m);
+    const steps =
+      m === "free"
+        ? stepsFor(m)
+        : [
+            { text: "⚠ preview mode — no real transfer (treasury wallet not configured yet)", ms: 900 },
+            ...stepsFor(m),
+          ];
     let at = 300;
     steps.forEach((s, i) => {
       timers.current.push(setTimeout(() => setLines((l) => [...l, s.text]), at));

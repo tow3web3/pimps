@@ -16,7 +16,7 @@ export default function Landing() {
           aria-hidden
         />
 
-        <header className="relative z-10 flex items-center justify-between px-6 md:px-10 h-16">
+        <header className="relative z-20 flex items-center justify-between px-6 md:px-10 h-16">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rotate-45 bg-[var(--cyan)] shadow-[0_0_12px_var(--cyan-glow)]" />
             <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
