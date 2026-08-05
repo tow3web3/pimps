@@ -24,10 +24,38 @@ function dbGet(key: string): string | null {
   return row?.value ?? null;
 }
 
+const PUBKEY_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+let warned = false;
+
+/**
+ * A Solana public key is 32 bytes (43-44 base58 chars); a secret key is 64
+ * (87-88). Pasting a secret where an address belongs would both break payments
+ * and leak the key into an address field, so it is refused loudly.
+ */
+function safeAddress(value: string, label: string): string {
+  const v = value.trim();
+  if (!v) return "";
+  if (!PUBKEY_RE.test(v)) {
+    if (!warned) {
+      warned = true;
+      console.error(
+        `[config] ${label} is not a valid Solana address (${v.length} chars). ` +
+          `If this is a SECRET key, move it to HOT_WALLET_SECRET_KEY and put the ` +
+          `PUBLIC address here. Payments stay simulated until this is fixed.`,
+      );
+    }
+    return "";
+  }
+  return v;
+}
+
 export function getConfig(): RuntimeConfig {
   return {
-    treasuryWallet: dbGet("treasuryWallet") ?? process.env.TREASURY_WALLET ?? "",
-    gfMint: dbGet("gfMint") ?? process.env.GF_MINT ?? RULES.token.mint ?? "",
+    treasuryWallet: safeAddress(
+      dbGet("treasuryWallet") ?? process.env.TREASURY_WALLET ?? "",
+      "TREASURY_WALLET",
+    ),
+    gfMint: safeAddress(dbGet("gfMint") ?? process.env.GF_MINT ?? RULES.token.mint ?? "", "GF_MINT"),
     gfDecimals: Number(dbGet("gfDecimals") ?? process.env.GF_DECIMALS ?? 6),
   };
 }
