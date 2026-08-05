@@ -88,6 +88,24 @@ CREATE TABLE IF NOT EXISTS payments (
   ts INTEGER NOT NULL
 );
 
+-- persistent candle store: pay each upstream fetch ONCE, then serve from here.
+-- tf_key 'self:1m' holds candles the server builds from its own price ticks.
+CREATE TABLE IF NOT EXISTS candles (
+  pool TEXT NOT NULL,
+  tf_key TEXT NOT NULL,
+  time INTEGER NOT NULL,
+  open REAL NOT NULL,
+  high REAL NOT NULL,
+  low REAL NOT NULL,
+  close REAL NOT NULL,
+  volume REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (pool, tf_key, time)
+);
+CREATE TABLE IF NOT EXISTS candle_meta (
+  key TEXT PRIMARY KEY,
+  fetched_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS withdrawals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   wallet TEXT NOT NULL,

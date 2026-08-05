@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { TokenInfo } from "@/lib/types";
+import { recordTick } from "@/server/candles";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +134,16 @@ export async function GET(req: NextRequest) {
           t.priceSol = usd / h.solUsd;
         }
       }
+    }
+  }
+
+  // every paid price tick also becomes a self-built 1m candle — charts get
+  // fresher for free, one tick at a time
+  for (const t of tokens) {
+    try {
+      recordTick(t.pairAddress, t.priceUsd);
+    } catch {
+      /* candle store must never break the price feed */
     }
   }
 

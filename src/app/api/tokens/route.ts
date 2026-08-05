@@ -69,9 +69,9 @@ interface PfCoin {
   created_timestamp?: number;
 }
 
-async function pumpfunPage(offset: number): Promise<PfCoin[]> {
+async function pumpfunPage(offset: number, sort = "market_cap"): Promise<PfCoin[]> {
   const res = await fetch(
-    `${PF}/coins?offset=${offset}&limit=50&sort=market_cap&order=DESC&includeNsfw=false`,
+    `${PF}/coins?offset=${offset}&limit=50&sort=${sort}&order=DESC&includeNsfw=false`,
     { cache: "no-store", headers: { accept: "application/json", "user-agent": UA } },
   );
   if (!res.ok) return [];
@@ -104,9 +104,8 @@ async function dsTokenPairs(mints: string[]): Promise<DsPair[]> {
   return Array.isArray(json) ? (json as DsPair[]) : [];
 }
 
-/** returns how many tokens this sweep merged */
+/** full walk of the mcap-sorted listing — the expensive, exhaustive sweep */
 async function sweepPumpfun(): Promise<number> {
-  // walk the mcap-sorted listing until it drops under the floor
   const coins: PfCoin[] = [];
   for (let offset = 0; offset < 4000; offset += 50) {
     const page = await pumpfunPage(offset);
@@ -120,9 +119,23 @@ async function sweepPumpfun(): Promise<number> {
     if ((tail?.usd_market_cap ?? 0) < RULES.minMcapUsd) break;
     await sleep(300);
   }
-  if (coins.length === 0) return 0;
+  return enrichAndMerge(coins);
+}
 
-  // enrich with live pool data, 30 mints per DexScreener call
+/** cheap 90s probe: the newest coins — catches graduates crossing the floor */
+async function sweepFresh(): Promise<number> {
+  const page = await pumpfunPage(0, "created_timestamp");
+  const coins = page.filter(
+    (c) =>
+      (c.usd_market_cap ?? 0) >= RULES.minMcapUsd &&
+      c.mint?.toLowerCase().endsWith(RULES.pumpSuffix),
+  );
+  return enrichAndMerge(coins);
+}
+
+/** DexScreener enrichment shared by both sweeps, 30 mints per call */
+async function enrichAndMerge(coins: PfCoin[]): Promise<number> {
+  if (coins.length === 0) return 0;
   const byMint = new Map(coins.map((c) => [c.mint, c]));
   let merged = 0;
   const mints = [...byMint.keys()];
@@ -281,14 +294,18 @@ async function sweepGecko(): Promise<void> {
 
 // ── route ────────────────────────────────────────────────────────────────
 
+let lastFullWalk = 0;
+
 async function sweep(): Promise<{ tokens: TokenInfo[]; solUsd: number }> {
+  const full = Date.now() - lastFullWalk > 5 * 60_000;
   let merged = 0;
   try {
-    merged = await sweepPumpfun();
+    merged = full ? await sweepPumpfun() : await sweepFresh();
+    if (full && merged > 0) lastFullWalk = Date.now();
   } catch {
     merged = 0;
   }
-  if (merged < 10) {
+  if (full && merged < 10) {
     console.warn(`[tokens] pump.fun listing thin (${merged}) — running geckoterminal fallback`);
     await sweepGecko().catch(() => {});
   }

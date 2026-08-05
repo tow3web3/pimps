@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Candle } from "@/lib/types";
+import { isFresh, markFetchAttempt, readMerged, storeFetched } from "@/server/candles";
 
 export const dynamic = "force-dynamic";
 
 const TFS = new Set(["minute", "hour", "day"]);
-const TTL = 30_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // GLOBAL throttle: GeckoTerminal bans bursts, so upstream calls are strictly
-// serialized with a 2.2s gap (~27/min, under their limit). Cached and stale
-// answers never queue — only true upstream misses wait here.
+// serialized with a 2.2s gap (~27/min). With the SQLite store in front, a
+// pool costs ONE upstream call ever, then one background refresh per 10 min.
 let gate: Promise<unknown> = Promise.resolve();
 let lastCall = 0;
 function throttled<T>(fn: () => Promise<T>): Promise<T> {
@@ -23,18 +23,12 @@ function throttled<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-const cache = new Map<string, { at: number; body: { candles: Candle[] } }>();
-// GeckoTerminal rate-limits in bursts — a chart that once had candles must
-// keep them: stale beats blank, always
-const lastGood = new Map<string, { candles: Candle[] }>();
-
 async function fetchCandles(pool: string, tf: string, agg: number): Promise<Candle[]> {
   const url = `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/ohlcv/${tf}?aggregate=${agg}&limit=300&currency=usd`;
   const res = await fetch(url, { cache: "no-store", headers: { accept: "application/json" } });
   if (!res.ok) return [];
   const json = await res.json();
   const list: number[][] = json?.data?.attributes?.ohlcv_list ?? [];
-
   const seen = new Set<number>();
   const candles: Candle[] = [];
   for (let i = list.length - 1; i >= 0; i--) {
@@ -47,6 +41,24 @@ async function fetchCandles(pool: string, tf: string, agg: number): Promise<Cand
   return candles;
 }
 
+const inflight = new Set<string>();
+
+async function refresh(pool: string, tf: string, agg: number): Promise<Candle[]> {
+  const tfKey = `${tf}:${agg}`;
+  const key = `${pool}:${tfKey}`;
+  if (inflight.has(key)) return [];
+  inflight.add(key);
+  try {
+    let candles = await throttled(() => fetchCandles(pool, tf, agg));
+    if (candles.length === 0) candles = await throttled(() => fetchCandles(pool, tf, agg));
+    if (candles.length > 0) storeFetched(pool, tfKey, candles);
+    else markFetchAttempt(pool, tfKey); // 10 min before re-trying an empty pool
+    return candles;
+  } finally {
+    inflight.delete(key);
+  }
+}
+
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const pool = q.get("pool") ?? "";
@@ -56,35 +68,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ candles: [] }, { status: 400 });
   }
 
-  const key = `${pool}:${tf}:${agg}`;
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < TTL) return NextResponse.json(hit.body);
+  const stored = readMerged(pool, tf, agg);
 
-  let candles = await throttled(() => fetchCandles(pool, tf, agg));
-  if (candles.length === 0) {
-    // one polite retry through the same gate
-    candles = await throttled(() => fetchCandles(pool, tf, agg));
+  if (isFresh(pool, `${tf}:${agg}`)) {
+    return NextResponse.json({ candles: stored });
   }
 
-  if (candles.length > 0) {
-    const body = { candles };
-    cache.set(key, { at: Date.now(), body });
-    lastGood.set(key, body);
-    if (cache.size > 300) {
-      const oldest = [...cache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
-      if (oldest) {
-        cache.delete(oldest[0]);
-        lastGood.delete(oldest[0]);
-      }
-    }
-    return NextResponse.json(body);
+  if (stored.length > 0) {
+    // serve instantly, refresh behind the scenes (persistent node process)
+    void refresh(pool, tf, agg).catch(() => {});
+    return NextResponse.json({ candles: stored });
   }
 
-  // upstream down or rate-limited — serve the stale history, retry soon
-  const stale = lastGood.get(key);
-  if (stale) {
-    cache.set(key, { at: Date.now() - TTL + 8_000, body: stale });
-    return NextResponse.json(stale);
-  }
-  return NextResponse.json({ candles: [] });
+  // first time this pool is charted — one paid fetch, stored forever
+  await refresh(pool, tf, agg).catch(() => {});
+  return NextResponse.json({ candles: readMerged(pool, tf, agg) });
 }
