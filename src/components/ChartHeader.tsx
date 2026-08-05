@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { fmtCompact, fmtPct, fmtSol, fmtUsd } from "@/lib/format";
 import type { TokenInfo } from "@/lib/types";
 import { TokenIcon } from "./TokenList";
+import CopyButton from "./CopyButton";
 
 export default function ChartHeader({ token }: { token: TokenInfo }) {
   const prev = useRef(token.priceUsd);
@@ -38,8 +39,11 @@ export default function ChartHeader({ token }: { token: TokenInfo }) {
             <span className="mono font-semibold text-[15px]">{token.symbol}</span>
             <span className="text-xs text-[var(--ink-3)] truncate max-w-[140px]">{token.name}</span>
           </div>
-          <div className="mono text-[10px] text-[var(--ink-3)] truncate max-w-[200px]">
-            {token.mint.slice(0, 6)}…{token.mint.slice(-6)}
+          <div className="flex items-center gap-1.5">
+            <span className="mono text-[10px] text-[var(--ink-3)]">
+              {token.mint.slice(0, 4)}…{token.mint.slice(-4)}
+            </span>
+            <CopyButton value={token.mint} label="CA" className="!text-[10px]" />
           </div>
         </div>
       </div>

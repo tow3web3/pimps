@@ -13,8 +13,9 @@ import ChallengeHUD from "@/components/ChallengeHUD";
 import GameOverlays from "@/components/GameOverlays";
 import MobileTradeBar from "@/components/MobileTradeBar";
 import LiveFeed, { FeedToasts } from "@/components/LiveFeed";
+import TokenInfoPanel from "@/components/TokenInfoPanel";
 
-type Tab = "market" | "chart" | "stats" | "tape";
+type Tab = "market" | "chart" | "info" | "stats" | "tape";
 
 export default function TerminalPage() {
   useMarketFeed();
@@ -88,6 +89,7 @@ export default function TerminalPage() {
         <div className="flex flex-col gap-3 min-h-0 overflow-y-auto">
           <ChallengeHUD />
           <TradePanel />
+          {token && <TokenInfoPanel mint={token.mint} />}
         </div>
       </main>
 
@@ -103,6 +105,15 @@ export default function TerminalPage() {
           </div>
         )}
         {tab === "chart" && <div className="flex-1 min-h-0 flex flex-col">{chartPanel}</div>}
+        {tab === "info" && (
+          <div className="flex-1 min-h-0 flex flex-col">
+            {token ? (
+              <TokenInfoPanel mint={token.mint} />
+            ) : (
+              <p className="mono text-xs text-[var(--ink-3)] p-6 text-center">select a token</p>
+            )}
+          </div>
+        )}
         {tab === "stats" && (
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
             <ChallengeHUD />
@@ -120,11 +131,12 @@ export default function TerminalPage() {
 
       {tab === "chart" && <MobileTradeBar />}
 
-      <nav className="lg:hidden shrink-0 grid grid-cols-4 border-t border-[var(--border)] bg-[var(--panel-solid)] z-40">
+      <nav className="lg:hidden shrink-0 grid grid-cols-5 border-t border-[var(--border)] bg-[var(--panel-solid)] z-40">
         {(
           [
             ["market", "◧", "markets"],
             ["chart", "◪", "trade"],
+            ["info", "ⓘ", "info"],
             ["stats", "◫", "stats"],
             ["tape", "▤", "tape"],
           ] as const
@@ -139,7 +151,7 @@ export default function TerminalPage() {
             }`}
           >
             <span className="text-[15px] leading-none">{icon}</span>
-            <span className="mono text-[9px] tracking-[0.1em] uppercase">{label}</span>
+            <span className="mono text-[9px] tracking-[0.08em] uppercase">{label}</span>
           </button>
         ))}
       </nav>
