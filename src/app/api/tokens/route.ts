@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { RULES } from "@/lib/rules";
+import { replaceEligible } from "@/server/eligibility";
 import type { TokenInfo } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,7 @@ function buildUniverse(): { tokens: TokenInfo[]; solUsd: number } {
     .map((x) => x.info)
     .sort((x, y) => y.vol24Usd - x.vol24Usd)
     .slice(0, MAX_TOKENS);
+  replaceEligible(tokens.map((t) => t.mint));
   return { tokens, solUsd: lastSolUsd };
 }
 
@@ -104,6 +106,11 @@ async function dsTokenPairs(mints: string[]): Promise<DsPair[]> {
   return Array.isArray(json) ? (json as DsPair[]) : [];
 }
 
+// NOTE: no mint-suffix filter here — pre-2024 pump.fun mints (MOODENG,
+// ZEREBRO, TROLL, …) don't carry the "pump" suffix; being in pump.fun's own
+// listing IS the provenance proof. The suffix check only guards the
+// GeckoTerminal fallback, where provenance is otherwise unknown.
+
 /** full walk of the mcap-sorted listing — the expensive, exhaustive sweep */
 async function sweepPumpfun(): Promise<number> {
   const coins: PfCoin[] = [];
@@ -111,9 +118,7 @@ async function sweepPumpfun(): Promise<number> {
     const page = await pumpfunPage(offset);
     if (page.length === 0) break;
     for (const c of page) {
-      if ((c.usd_market_cap ?? 0) >= RULES.minMcapUsd && c.mint?.toLowerCase().endsWith(RULES.pumpSuffix)) {
-        coins.push(c);
-      }
+      if ((c.usd_market_cap ?? 0) >= RULES.minMcapUsd && c.mint) coins.push(c);
     }
     const tail = page[page.length - 1];
     if ((tail?.usd_market_cap ?? 0) < RULES.minMcapUsd) break;
@@ -125,11 +130,7 @@ async function sweepPumpfun(): Promise<number> {
 /** cheap 90s probe: the newest coins — catches graduates crossing the floor */
 async function sweepFresh(): Promise<number> {
   const page = await pumpfunPage(0, "created_timestamp");
-  const coins = page.filter(
-    (c) =>
-      (c.usd_market_cap ?? 0) >= RULES.minMcapUsd &&
-      c.mint?.toLowerCase().endsWith(RULES.pumpSuffix),
-  );
+  const coins = page.filter((c) => (c.usd_market_cap ?? 0) >= RULES.minMcapUsd && c.mint);
   return enrichAndMerge(coins);
 }
 

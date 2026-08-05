@@ -64,8 +64,7 @@ export default function TradePanel() {
     else flash("err", r.error ?? "rejected");
   };
 
-  const notBuyable =
-    !!token && (token.mcapUsd < RULES.minMcapUsd || !token.mint.toLowerCase().endsWith("pump"));
+  const notBuyable = !!token && token.mcapUsd < RULES.minMcapUsd;
 
   return (
     <div className="glass flex flex-col overflow-hidden">

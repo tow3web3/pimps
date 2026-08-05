@@ -136,8 +136,13 @@ export async function buy(wallet: string, mint: string, solAmount: number) {
   const { marks } = await getMarks([mint, ...positionsOf(run.id).map((p) => p.mint)]);
   const mark = marks[mint];
   if (!mark) throw new Error("no live market for this token");
-  if (!mint.toLowerCase().endsWith(RULES.pumpSuffix)) throw new Error("not a pump.fun token");
-  if (mark.mcapUsd < RULES.minMcapUsd) throw new Error("market cap below the floor");
+  // provenance: either the universe sweep vouches for it (pump.fun's own
+  // listing) or the mint carries the modern vanity suffix
+  const { eligibleMints } = await import("./eligibility");
+  if (!eligibleMints.has(mint) && !mint.toLowerCase().endsWith(RULES.pumpSuffix)) {
+    throw new Error("not a pump.fun token");
+  }
+  if (mark.mcapUsd < RULES.minMcapUsd * 0.9) throw new Error("market cap below the floor");
   if (mark.liqUsd < 15_000) throw new Error("pool liquidity below the floor");
   if (solAmount < RULES.minOrderSol) throw new Error("order below minimum");
   if (solAmount > run.cash_sol + 1e-9) throw new Error("insufficient balance");

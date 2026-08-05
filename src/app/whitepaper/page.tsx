@@ -169,7 +169,7 @@ export default function Whitepaper() {
           <H2 id="floors">listing floors</H2>
           <p>A coin is buyable only if it clears every floor at the moment of the fill:</p>
           <div className="glass p-5 mt-5">
-            <Row k="provenance" v={`minted through pump.fun (mint ends in "${RULES.pumpSuffix}")`} />
+            <Row k="provenance" v="listed in pump.fun's own registry (suffix check on fallback sources)" />
             <Row k="market cap" v={`≥ $${(RULES.minMcapUsd / 1000).toFixed(0)}K`} />
             <Row k="pool liquidity" v="≥ $15K in the deepest SOL pool" />
             <Row k="quote pricing" v="read from the single deepest pool" />

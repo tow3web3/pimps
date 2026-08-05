@@ -180,8 +180,6 @@ export const useGame = create<GameState>()(
           return { ok: false, error: "no live price for this token" };
         if (token.mcapUsd < RULES.minMcapUsd)
           return { ok: false, error: `market cap below $${RULES.minMcapUsd / 1000}K floor` };
-        if (!token.mint.toLowerCase().endsWith(RULES.pumpSuffix))
-          return { ok: false, error: "not a pump.fun token" };
         if (solAmount < RULES.minOrderSol)
           return { ok: false, error: `min order is ${RULES.minOrderSol} SOL` };
         if (solAmount > s.cashSol + 1e-9) return { ok: false, error: "insufficient balance" };
