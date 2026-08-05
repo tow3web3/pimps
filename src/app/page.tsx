@@ -302,6 +302,14 @@ export default function Landing() {
               a: `You get a funded account worth ${RULES.fundedMultiple}x your entry fee, trading with the firm's capital on a ${RULES.profitSplit * 100}/${100 - RULES.profitSplit * 100} profit split paid in USDC. (Simulated in this preview build.)`,
             },
             {
+              q: "What if a coin I hold drops below $100K?",
+              a: "You can always sell it — no floor is ever applied to an exit, so a collapsing coin can cost you money but can never trap you. You just can't buy more of it while it sits under the floor, and it stays pinned in your token list marked 'sell only'. Your position keeps being priced live, so its losses still count against your equity and can still fail your run.",
+            },
+            {
+              q: "Which coins can I trade?",
+              a: `Every pump.fun coin above $100K market cap with at least $15K of real liquidity in its deepest SOL pool. That liquidity floor is why the list is shorter than the raw count of coins above $100K — a coin with a market cap but no liquidity has a price nobody could actually trade at, so it is left out on purpose.`,
+            },
+            {
               q: `What is the ${RULES.token.symbol} token for?`,
               a: `One thing: paying your entry at a ${RULES.token.discount * 100}% discount — $${entryFeeGfUsd()} instead of $${RULES.entryFeeUsd}. No governance, no gated formats, no claim on anything. It's a discount with a market price. The token is not deployed yet; the whitepaper will carry the mint address once it is.`,
             },

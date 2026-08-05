@@ -4,8 +4,7 @@ import { BRAND, entryFeeGfUsd, fundedAccountUsd, RULES } from "@/lib/rules";
 
 export const metadata: Metadata = {
   title: `${BRAND} — whitepaper`,
-  description:
-    "The long-form version: the mechanism, the fill engine, the price infrastructure, the DGN token, and the honest limits.",
+  description: `The long-form version: the mechanism, the fill engine, eligibility, accounts and settlement, the price infrastructure, the ${RULES.token.symbol} token, and the honest limits.`,
 };
 
 const SECTIONS = [
@@ -14,10 +13,13 @@ const SECTIONS = [
   ["mechanism", "mechanism"],
   ["engine", "the fill engine"],
   ["floors", "listing floors"],
+  ["delisting", "when a token falls"],
+  ["accounts", "accounts & integrity"],
   ["infra", "price infrastructure"],
   ["stack", "the stack"],
   ["funded", "funded accounts"],
-  ["token", "the DGN token"],
+  ["payouts", "withdrawals & payouts"],
+  ["token", `the ${RULES.token.symbol} token`],
   ["limits", "limits & risks"],
   ["verify", "verifying this document"],
 ] as const;
@@ -141,6 +143,12 @@ export default function Whitepaper() {
             <Row k="a failed run" v="restarts from challenge 01 with a new entry" />
           </div>
           <p className="mt-4">
+            The exposure cap is measured <b className="text-[var(--ink)]">at entry</b>: a position
+            may not be built beyond {RULES.maxExposure * 100}% of equity, but a winner is never
+            forced down when it grows past that share on its own. Risk is constrained where it is
+            taken — in the sizing decision — not by punishing a correct call.
+          </p>
+          <p className="mt-4">
             The drawdown floor is checked on every price tick against net liquidation value —
             cash plus every position marked at the live quote with the exit fee already deducted.
             There is no equity number on screen that could not actually be realized.
@@ -169,7 +177,7 @@ export default function Whitepaper() {
           <H2 id="floors">listing floors</H2>
           <p>A coin is buyable only if it clears every floor at the moment of the fill:</p>
           <div className="glass p-5 mt-5">
-            <Row k="provenance" v="listed in pump.fun's own registry (suffix check on fallback sources)" />
+            <Row k="provenance" v="listed in pump.fun's own registry" />
             <Row k="market cap" v={`≥ $${(RULES.minMcapUsd / 1000).toFixed(0)}K`} />
             <Row k="pool liquidity" v="≥ $15K in the deepest SOL pool" />
             <Row k="quote pricing" v="read from the single deepest pool" />
@@ -179,9 +187,74 @@ export default function Whitepaper() {
             regardless of size, the engine is only fair if the underlying market is expensive to
             move. A trader who can push a thin pool for a few hundred dollars could multiply a
             simulated position against a price they created. The floors make that manipulation cost
-            more than the prize is worth. Tokens that later fall under the floor become sell-only —
-            you can always exit, you can never build on a broken pool.
+            more than the prize is worth.
           </p>
+          <p className="mt-4">
+            Provenance is read from pump.fun&apos;s own registry rather than from the mint address.
+            Mints created before the vanity-suffix era — MOODENG, ZEREBRO, TROLL and others — carry
+            no <code className="mono text-[12px]">pump</code> ending, and a suffix test would
+            silently exclude some of the most liquid tokens on the platform. The suffix is only
+            used as a provenance fallback when the registry is unreachable and a secondary indexer
+            supplies the universe.
+          </p>
+          <Callout title="why the floors exclude tokens that look eligible">
+            A token can show a $180K market cap and have essentially no liquidity behind it. Its
+            quoted price is arithmetic, not a market: nobody could buy or sell a meaningful size at
+            it. Those are excluded on purpose. The universe is deliberately smaller than the raw
+            count of mints above the market-cap floor, and the gap is entirely made of markets that
+            could not honour a fill.
+          </Callout>
+
+          <H2 id="delisting">when a token falls under the floor</H2>
+          <p>
+            Eligibility is evaluated continuously, not once. A token you already hold can drop below
+            the market-cap floor while you own it. Exactly three things happen, and nothing else:
+          </p>
+          <div className="glass p-5 mt-5">
+            <Row k="selling" v="always allowed — no floor is ever applied to an exit" />
+            <Row k="buying more" v="blocked while it sits under the floor" />
+            <Row k="your position" v="still marked at the live price, still counts toward equity" />
+          </div>
+          <p className="mt-4">
+            The first rule is absolute: no market-cap check, liquidity check or eligibility check is
+            applied on the sell path, in the engine or in the interface. A collapsing token can cost
+            you money, but it can never trap you in a position.
+          </p>
+          <p className="mt-4">
+            The third rule is what keeps the evaluation honest. The position keeps being priced from
+            the live market independently of the eligible universe, so its losses continue to count
+            against your equity and can breach the drawdown floor and end the run. Holding a
+            delisted token is not a way to freeze a losing position.
+          </p>
+          <p className="mt-4">
+            A token you hold stays pinned in the token list whatever the filters say, labelled{" "}
+            <b className="text-[var(--ink)]">sell only</b> with its real market cap, so a position
+            is never something you have to hunt for. The buy block carries a 10% tolerance band
+            around the floor so a token oscillating at the boundary does not flicker between
+            tradeable and blocked. If it climbs back above the floor, it becomes buyable again on
+            its own.
+          </p>
+
+          <H2 id="accounts">accounts &amp; integrity</H2>
+          <p>
+            An account is a Solana wallet. Signing in means signing a nonce-bearing message with
+            that wallet — there is no password, and the address you sign in with is the address any
+            payout is sent to.
+          </p>
+          <p className="mt-4">
+            For a signed-in wallet the run is <b className="text-[var(--ink)]">executed on the
+            server</b>, not in the browser. Fills are priced from server-side marks, and the
+            exposure cap, drawdown floor, minimum-fill count and challenge expiry are enforced in
+            the engine before anything is written. The browser holds no authority over the outcome:
+            it renders a mirror of a state it cannot modify. Requests without a valid session are
+            rejected outright.
+          </p>
+          <Callout title="the preview mode is not an account">
+            Visitors without a wallet can still play the whole gauntlet locally, in the browser, so
+            the product can be evaluated without signing anything. That local run is a
+            demonstration: it is not recorded, it is trivially modifiable by whoever is running it,
+            and it can never qualify for a funded account. Only server-side runs count.
+          </Callout>
 
           <H2 id="infra">price infrastructure</H2>
           <p>The feed is layered, each layer replaceable without touching the game:</p>
@@ -250,10 +323,44 @@ export default function Whitepaper() {
             reward scales with the entry, not the difficulty. The evaluation you passed is the
             risk model the funded account inherits: same exposure cap, same drawdown discipline.
           </p>
+          <p className="mt-4">
+            The funded account is <b className="text-[var(--ink)]">the firm&apos;s capital, and it
+            stays with the firm</b>. It is never transferred to the trader&apos;s wallet: it is a
+            balance on this platform, traded on the same engine, under the same exposure cap and a
+            drawdown floor at half the principal. Blowing it closes the account and costs the
+            trader nothing beyond the entry already paid.
+          </p>
+
+          <H2 id="payouts">withdrawals &amp; payouts</H2>
+          <p>
+            Only <b className="text-[var(--ink)]">realized profit above the principal</b> can be
+            withdrawn — the capital itself never leaves. On a withdrawal the profit is split at the
+            published rate and the trader&apos;s share is sent in USDC to the wallet they signed in
+            with.
+          </p>
+          <div className="glass p-5 mt-5">
+            <Row k="withdrawable" v="cash above the funded principal, realized (not unrealized)" />
+            <Row
+              k="split"
+              v={`${RULES.profitSplit * 100}% trader / ${100 - RULES.profitSplit * 100}% firm, applied at withdrawal`}
+            />
+            <Row k="minimum" v="$5 of realized profit" />
+            <Row k="safety delay" v="24h between request and payment" />
+            <Row k="concurrency" v="one pending withdrawal at a time" />
+            <Row k="daily ceiling" v="configurable cap on automated payouts per rolling 24h" />
+          </div>
+          <p className="mt-4">
+            The requested amount is deducted from the account the moment the request is recorded, so
+            the same profit cannot be withdrawn twice. Payment is then made automatically from a
+            dedicated payout wallet holding a working float — deliberately not the treasury — and
+            the delay and the ceiling exist so an anomaly can be caught before money moves rather
+            than after.
+          </p>
           <Callout title="preview build">
-            In this build the funded account and all payments are simulated end-to-end. The
-            mechanism is final; the money is not yet wired in. This document will say so plainly
-            for as long as that is true.
+            In this build entry payments and payouts are simulated end-to-end: the payout worker is
+            wired and dormant until a payout wallet is configured, and entries are granted without a
+            transfer until a treasury address is set. The mechanism is final; the money is not yet
+            connected. This document will say so plainly for as long as that is true.
           </Callout>
 
           <H2 id="token">the {RULES.token.symbol} token</H2>
@@ -298,9 +405,21 @@ export default function Whitepaper() {
               unreachable, quotes and floors are affected.
             </li>
             <li>
-              <b className="text-[var(--ink)]">This build has no accounts.</b> Progress lives in
-              the browser. The production version moves the book server-side — until then, a
-              result is a preview, not a record.
+              <b className="text-[var(--ink)]">The universe depends on an unofficial API.</b>{" "}
+              Eligibility is read from pump.fun&apos;s own listing endpoint, which is not a
+              documented public interface and can change without notice. A secondary indexer takes
+              over when it does, with narrower coverage.
+            </li>
+            <li>
+              <b className="text-[var(--ink)]">One wallet is not one person.</b> Nothing today
+              proves a single human controls a single wallet, so the free tier is farmable by
+              someone willing to spread across addresses. It is capped in reward for that reason,
+              and per-identity limits are the obvious next step.
+            </li>
+            <li>
+              <b className="text-[var(--ink)]">Payouts depend on an operator.</b> They are
+              automated, but from a wallet this firm controls, on infrastructure this firm runs.
+              Settlement is not trustless and this document does not claim otherwise.
             </li>
             <li>
               <b className="text-[var(--ink)]">Floors are a deterrent, not a proof.</b> They raise
