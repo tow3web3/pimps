@@ -48,18 +48,18 @@ export default function TradePanel() {
     setTimeout(() => setMsg(null), 3500);
   };
 
-  const doBuy = () => {
+  const doBuy = async () => {
     if (!token) return;
-    const r = game.buy(token, amt);
+    const r = await Promise.resolve(game.buy(token, amt));
     if (r.ok) {
       flash("ok", `filled · bought ${fmtQty(estQty)} ${token.symbol}`);
       setAmount("");
     } else flash("err", r.error ?? "rejected");
   };
 
-  const doSell = () => {
+  const doSell = async () => {
     if (!token || !position) return;
-    const r = game.sell(token.mint, fraction, token.priceSol);
+    const r = await Promise.resolve(game.sell(token.mint, fraction, token.priceSol));
     if (r.ok) flash("ok", `filled · sold ${fmtQty(sellQty)} ${token.symbol}`);
     else flash("err", r.error ?? "rejected");
   };

@@ -68,7 +68,8 @@ export type GameStatus =
   | "active" // trading the current phase
   | "passed" // phase cleared, waiting on the next-phase screen
   | "failed" // drawdown breached or clock expired
-  | "funded"; // all three phases cleared
+  | "funded" // all three phases cleared (local-mode celebration state)
+  | "unseated"; // server mode: authenticated but no run yet — go pay an entry
 
 export type FailReason = "drawdown" | "expired";
 

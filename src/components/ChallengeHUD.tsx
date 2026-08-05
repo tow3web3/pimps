@@ -34,7 +34,85 @@ export default function ChallengeHUD() {
 
   const tradesOk = game.trades.length >= RULES.minTrades;
   const targetHit = game.equity >= target;
-  const canPass = game.status === "active" && targetHit && tradesOk;
+  const canPass = game.status === "active" && targetHit && tradesOk && !game.funded;
+
+  // ── funded account HUD — no target, profits are withdrawable 80/20 ──
+  if (game.funded) {
+    const f = game.funded;
+    const floor = f.startSol * 0.5;
+    const fBuffer = Math.max(0, Math.min(1, (game.equity - floor) / (f.startSol - floor)));
+    const pending = game.serverWithdrawals.find((w) => w.status === "pending");
+    return (
+      <div className="glass overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] bg-[rgba(167,139,250,0.05)]">
+          <span className="mono text-xs tracking-[0.25em] text-[var(--violet)]">
+            FUNDED ACCOUNT
+          </span>
+          <span className="chip !text-[var(--violet)] !border-[rgba(167,139,250,0.45)]">
+            {fmtUsd(f.principalUsd)} · {RULES.profitSplit * 100}/{100 - RULES.profitSplit * 100}
+          </span>
+        </div>
+        <div className="p-4 space-y-4">
+          <div>
+            <span className="panel-title">equity · nlv</span>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="mono text-[28px] font-semibold leading-none">
+                {fmtSol(game.equity, 3)}
+              </span>
+              <span className="mono text-xs text-[var(--ink-3)]">SOL</span>
+              {solUsd > 0 && (
+                <span className="mono text-[11px] text-[var(--ink-3)] ml-auto">
+                  ≈ {fmtUsd(game.equity * solUsd)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="panel-title">buffer · closes below {fmtSol(floor, 2)}</span>
+              <span className="mono text-[10px] text-[var(--ink-2)]">
+                {fmtSol(Math.max(0, game.equity - floor), 2)} SOL
+              </span>
+            </div>
+            <div className="meter">
+              <div
+                className="meter-fill"
+                style={{
+                  width: `${fBuffer * 100}%`,
+                  background: "linear-gradient(90deg, var(--violet), var(--cyan))",
+                }}
+              />
+            </div>
+          </div>
+          <div className="rounded-lg border border-[rgba(52,211,153,0.3)] px-3 py-2.5">
+            <div className="flex justify-between items-baseline">
+              <span className="panel-title !text-[var(--up)]">withdrawable profit</span>
+              <span className="mono text-lg text-up">{fmtUsd(f.withdrawableUsd)}</span>
+            </div>
+            <p className="mono text-[10px] text-[var(--ink-3)] mt-1">
+              realized cash above principal · your share {RULES.profitSplit * 100}% ={" "}
+              {fmtUsd(f.withdrawableUsd * RULES.profitSplit)}
+            </p>
+            {pending ? (
+              <p className="mono text-[10px] text-[var(--amber)] mt-2">
+                ⏳ {fmtUsd(pending.payout_usd)} pending · pays after the 24h safety window
+              </p>
+            ) : (
+              <button
+                onClick={() =>
+                  void fetch("/api/game/withdraw", { method: "POST" }).then(() => undefined)
+                }
+                disabled={f.withdrawableUsd < 5}
+                className="btn btn-buy w-full !py-2.5 mt-2"
+              >
+                request withdrawal
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="glass overflow-hidden">
@@ -156,7 +234,7 @@ export default function ChallengeHUD() {
         {/* secure pass */}
         {canPass && (
           <button
-            onClick={() => useGame.getState().securePass(tokens)}
+            onClick={() => void Promise.resolve(useGame.getState().securePass(tokens))}
             className="btn btn-buy secure-pass w-full py-3.5 !text-[13px]"
           >
             ◆ secure pass — clear challenge 0{phase.num}

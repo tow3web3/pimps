@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { BRAND, entryFeeGfUsd, RULES } from "@/lib/rules";
 import { useGame } from "@/lib/store";
 import { fmtUsd } from "@/lib/format";
-import { payUsdc, realPaymentsAvailable } from "@/lib/payments";
+import { getProvider, payUsdc, realPaymentsAvailable } from "@/lib/payments";
+import { connectWallet, serverEnter, useAuth } from "@/lib/authClient";
 
 type Method = "usdc" | "gf" | "free";
 
@@ -69,14 +70,31 @@ export default function EnterPage() {
     });
   };
 
-  const runLiveUsdc = async () => {
+  // authenticated path: the SERVER verifies the payment and creates the run
+  const runServer = async () => {
     try {
-      const sig = await payUsdc(usdcPrice, (line) => setLines((l) => [...l, line]));
-      setLines((l) => [...l, `✓ payment confirmed on-chain — seat secured`]);
-      useGame.getState().payEntry("usdc", sig);
+      let wallet: string | null = useAuth.getState().wallet;
+      if (!wallet) {
+        setLines((l) => [...l, "connecting wallet…"]);
+        wallet = await connectWallet();
+        const w = wallet;
+        setLines((l) => [...l, `wallet ${w.slice(0, 4)}…${w.slice(-4)} signed in`]);
+      }
+      let txSig: string | undefined;
+      if (method !== "free" && live) {
+        txSig = await payUsdc(method === "gf" ? gfPrice : usdcPrice, (line) =>
+          setLines((l) => [...l, line]),
+        );
+      } else if (method !== "free") {
+        setLines((l) => [...l, "⚠ preview — treasury not configured, seat granted without transfer"]);
+      }
+      setLines((l) => [...l, "registering seat with the server…"]);
+      const r = await serverEnter(method, txSig);
+      if (!r.ok) throw new Error(r.error);
+      setLines((l) => [...l, "✓ seat confirmed — the server is watching your run"]);
       timers.current.push(setTimeout(() => router.push("/terminal"), 900));
     } catch (e) {
-      setLines((l) => [...l, `✕ ${e instanceof Error ? e.message : "payment failed"}`]);
+      setLines((l) => [...l, `✕ ${e instanceof Error ? e.message : "failed"}`]);
       setProcessing(false);
     }
   };
@@ -85,8 +103,11 @@ export default function EnterPage() {
     if (processing) return;
     setProcessing(true);
     setLines([]);
-    if (method === "free" || !live) runSimulated(method);
-    else if (method === "usdc") void runLiveUsdc();
+    // with a wallet available we always go through the server (real accounts);
+    // pure guests without any wallet extension keep the local simulation
+    const hasWallet = useAuth.getState().wallet !== null || getProvider() !== null;
+    if (hasWallet) void runServer();
+    else runSimulated(method);
   };
 
   // in live mode the GF lane waits for the token to exist on-chain

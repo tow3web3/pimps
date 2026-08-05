@@ -95,7 +95,7 @@ export default function PositionsPanel() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              useGame.getState().sell(p.mint, 1, mark);
+                              void Promise.resolve(useGame.getState().sell(p.mint, 1, mark));
                             }}
                             className="chip hover:!border-[rgba(251,113,133,0.55)] hover:!text-[var(--down)] transition-colors"
                           >

@@ -244,6 +244,27 @@ export default function DashboardPage() {
               universe: pump.fun mints ≥ {fmtCompact(RULES.minMcapUsd)} mcap · real prices, demo
               stack
             </p>
+            {game.serverWithdrawals.length > 0 && (
+              <div className="mt-4 space-y-1.5">
+                <span className="panel-title">withdrawals</span>
+                {game.serverWithdrawals.slice(0, 5).map((w) => (
+                  <div key={w.id} className="flex justify-between mono text-[11px]">
+                    <span
+                      className={
+                        w.status === "paid"
+                          ? "text-up"
+                          : w.status === "pending"
+                            ? "text-[var(--amber)]"
+                            : "text-down"
+                      }
+                    >
+                      {w.status === "paid" ? "✓" : w.status === "pending" ? "⏳" : "✕"} {w.status}
+                    </span>
+                    <span>{fmtUsd(w.payout_usd)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {game.lastPayment && (
               <span
                 className={`chip self-start mt-3 ${

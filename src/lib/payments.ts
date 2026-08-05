@@ -22,6 +22,7 @@ interface PhantomProvider {
   publicKey: PublicKey | null;
   connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: PublicKey }>;
   signAndSendTransaction: (tx: Transaction) => Promise<{ signature: string }>;
+  signMessage?: (msg: Uint8Array, encoding: "utf8") => Promise<{ signature: Uint8Array }>;
 }
 
 export function getProvider(): PhantomProvider | null {

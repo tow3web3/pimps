@@ -6,9 +6,12 @@ import { BRAND, RULES } from "@/lib/rules";
 import { useGame } from "@/lib/store";
 import { useMarket } from "@/lib/market";
 import { fmtSol, fmtUsd } from "@/lib/format";
+import { connectWallet, disconnectWallet, useAuth, useServerSync } from "@/lib/authClient";
 
 export default function TopBar() {
+  useServerSync();
   const game = useGame();
+  const { wallet, connecting } = useAuth();
   const { solUsd, lastTick, source } = useMarket();
   const path = usePathname();
   const feedLive = Date.now() - lastTick < 15_000;
@@ -21,7 +24,9 @@ export default function TopBar() {
       </Link>
 
       <span className="chip !text-[var(--cyan)] !border-[rgba(34,211,238,0.35)]">
-        challenge 0{RULES.phases[game.phase].num} · {RULES.phases[game.phase].gainLabel}
+        {game.funded
+          ? `funded · ${fmtUsd(game.funded.principalUsd)}`
+          : `challenge 0${RULES.phases[game.phase].num} · ${RULES.phases[game.phase].gainLabel}`}
       </span>
 
       <div className="hidden md:flex items-center gap-2">
@@ -41,6 +46,24 @@ export default function TopBar() {
           <span className="text-[var(--ink-3)] text-[10px] tracking-[0.18em] mr-1.5">EQUITY</span>
           {fmtSol(game.equity, 2)} <span className="text-[var(--ink-3)] text-[10px]">SOL</span>
         </span>
+        <button
+          onClick={() => {
+            if (wallet) void disconnectWallet();
+            else connectWallet().catch(() => {});
+          }}
+          className={`chip transition-colors ${
+            wallet
+              ? "!text-[var(--up)] !border-[rgba(52,211,153,0.45)] hover:!text-[var(--down)] hover:!border-[rgba(251,113,133,0.45)]"
+              : "!text-[var(--cyan)] !border-[rgba(34,211,238,0.45)] hover:bg-[rgba(34,211,238,0.08)]"
+          }`}
+          title={wallet ? "click to disconnect" : "sign in with your Solana wallet"}
+        >
+          {connecting
+            ? "connecting…"
+            : wallet
+              ? `◆ ${wallet.slice(0, 4)}…${wallet.slice(-4)}`
+              : "connect wallet"}
+        </button>
         <nav className="flex items-center gap-1.5">
           <Link
             href="/terminal"
