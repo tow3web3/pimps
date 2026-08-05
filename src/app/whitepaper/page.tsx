@@ -1,0 +1,339 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import { BRAND, entryFeeGfUsd, fundedAccountUsd, RULES } from "@/lib/rules";
+
+export const metadata: Metadata = {
+  title: `${BRAND} — whitepaper`,
+  description:
+    "The long-form version: the mechanism, the fill engine, the price infrastructure, the DGN token, and the honest limits.",
+};
+
+const SECTIONS = [
+  ["abstract", "abstract"],
+  ["problem", "the problem"],
+  ["mechanism", "mechanism"],
+  ["engine", "the fill engine"],
+  ["floors", "listing floors"],
+  ["infra", "price infrastructure"],
+  ["stack", "the stack"],
+  ["funded", "funded accounts"],
+  ["token", "the DGN token"],
+  ["limits", "limits & risks"],
+  ["verify", "verifying this document"],
+] as const;
+
+function H2({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <h2 id={id} className="mono text-xl font-bold mt-14 scroll-mt-24 flex items-center gap-3">
+      <span className="text-[var(--cyan)]">#</span> {children}
+    </h2>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-[var(--border)] py-2.5">
+      <span className="mono text-[12px] text-[var(--ink-2)]">{k}</span>
+      <span className="mono text-[12px] text-[var(--ink)] text-right">{v}</span>
+    </div>
+  );
+}
+
+function Callout({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="glass !border-[rgba(251,191,36,0.3)] p-5 my-6">
+      <p className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--amber)]">{title}</p>
+      <div className="text-[13px] text-[var(--ink-2)] mt-2 leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
+export default function Whitepaper() {
+  const dd = ((1 - RULES.failFloor / RULES.startBalance) * 100).toFixed(0);
+
+  return (
+    <div className="min-h-dvh">
+      <header className="sticky top-0 z-40 glass !rounded-none !border-x-0 !border-t-0 flex items-center justify-between px-6 h-14">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="w-2 h-2 rotate-45 bg-[var(--cyan)] shadow-[0_0_12px_var(--cyan-glow)]" />
+          <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
+        </Link>
+        <span className="panel-title hidden sm:block">whitepaper · v0.2 · preview build</span>
+        <Link href="/enter" className="btn btn-cyan !py-2 !px-4">
+          take a seat
+        </Link>
+      </header>
+
+      <div className="max-w-6xl mx-auto flex gap-10 px-4 md:px-8">
+        {/* side nav */}
+        <nav className="hidden lg:block w-52 shrink-0 sticky top-24 self-start py-10">
+          <p className="panel-title mb-3">contents</p>
+          <ul className="space-y-1.5">
+            {SECTIONS.map(([id, label]) => (
+              <li key={id}>
+                <a
+                  href={`#${id}`}
+                  className="mono text-[12px] text-[var(--ink-3)] hover:text-[var(--cyan)] transition-colors"
+                >
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <article className="flex-1 max-w-2xl py-10 pb-24 text-[14px] leading-relaxed text-[var(--ink-2)]">
+          <p className="panel-title">whitepaper</p>
+          <h1 className="text-4xl font-bold text-[var(--ink)] mt-2">
+            Skill, separated from <span className="gradient-text">capital</span>.
+          </h1>
+          <p className="mono text-[11px] text-[var(--ink-3)] mt-3">
+            every figure on this page is imported from the same constants file the game engine
+            executes — the document cannot disagree with the product.
+          </p>
+
+          <H2 id="abstract">abstract</H2>
+          <p>
+            {BRAND} applies the funded-account model — long established in foreign-exchange prop
+            trading — to Solana memecoins minted through pump.fun. A trader pays a fixed entry fee,
+            receives a simulated {RULES.startBalance} SOL stack, and trades live market prices
+            through three consecutive challenges of rising difficulty (
+            {RULES.phases.map((p) => p.gainLabel).join(", ")}). Clearing all three unlocks a funded
+            account worth {RULES.fundedMultiple}x the entry fee on an{" "}
+            {RULES.profitSplit * 100}/{100 - RULES.profitSplit * 100} profit split.
+          </p>
+          <p className="mt-4">
+            The design goal is a market where skill is separable from capital and from
+            luck-of-the-launch, and where the cost of losing is bounded and known before you start.
+          </p>
+
+          <H2 id="problem">the problem</H2>
+          <p>
+            Memecoin trading punishes the wrong things. Position size dominates skill, so the
+            trader with the most capital wins the most even when their timing is worse. Losses are
+            unbounded, so one bad night removes a participant permanently. And there is no durable
+            record of performance: a screenshot of a winning trade says nothing about the losing
+            ones.
+          </p>
+          <p className="mt-4">
+            Prop firms solved the structurally identical problem in FX by separating the evaluation
+            from the capital: demonstrate skill on a simulated balance under enforced risk limits,
+            and the firm supplies real money to whoever passes. {BRAND} keeps that evaluation and
+            points it at the most volatile market on earth.
+          </p>
+
+          <H2 id="mechanism">mechanism</H2>
+          <p>
+            Every phase restarts the trader at the same balance against a higher target, so the
+            leaderboard compares decisions rather than bankrolls. The full parameter set:
+          </p>
+          <div className="glass p-5 mt-5">
+            <Row k="starting stack" v={`${RULES.startBalance} SOL · every phase`} />
+            <Row
+              k="targets"
+              v={RULES.phases.map((p) => `${p.gainLabel} → ${p.target} SOL`).join("  ·  ")}
+            />
+            <Row k="max drawdown" v={`${dd}% — equity below ${RULES.failFloor} SOL ends the run`} />
+            <Row k="max exposure" v={`${RULES.maxExposure * 100}% of equity per token, at entry`} />
+            <Row k="minimum fills" v={`${RULES.minTrades} per phase`} />
+            <Row k="time window" v={`${RULES.challengeDays} days per phase`} />
+            <Row k="fee per fill" v={`${RULES.feeRate * 100}%, both sides`} />
+            <Row k="a failed run" v="restarts from challenge 01 with a new entry" />
+          </div>
+          <p className="mt-4">
+            The drawdown floor is checked on every price tick against net liquidation value —
+            cash plus every position marked at the live quote with the exit fee already deducted.
+            There is no equity number on screen that could not actually be realized.
+          </p>
+
+          <H2 id="engine">the fill engine</H2>
+          <p>
+            Trades are simulated against live market prices. No order is routed to a venue and no
+            on-chain swap occurs, so a fill never moves the real market and never competes with the
+            trader&apos;s own wallet.
+          </p>
+          <div className="glass p-5 mt-5">
+            <Row k="price source" v="live on-chain market data" />
+            <Row k="fee charged" v={`${RULES.feeRate * 100}% per fill — pump.fun's real take`} />
+            <Row k="market impact" v="none — size does not move the quote" />
+            <Row k="settlement" v="simulated book, not a wallet" />
+          </div>
+          <p className="mt-4">
+            The fee is not revenue — it exists so that overtrading carries the same drag it
+            carries in the real market. A simulator with zero cost per trade rewards churn, which
+            is the opposite of the skill being measured. The {RULES.maxExposure * 100}% exposure
+            cap and the {RULES.minTrades}-fill minimum close the two remaining exploits: the
+            all-in coin-flip and the one-lucky-entry pass.
+          </p>
+
+          <H2 id="floors">listing floors</H2>
+          <p>A coin is buyable only if it clears every floor at the moment of the fill:</p>
+          <div className="glass p-5 mt-5">
+            <Row k="provenance" v={`minted through pump.fun (mint ends in "${RULES.pumpSuffix}")`} />
+            <Row k="market cap" v={`≥ $${(RULES.minMcapUsd / 1000).toFixed(0)}K`} />
+            <Row k="pool liquidity" v="≥ $15K in the deepest SOL pool" />
+            <Row k="quote pricing" v="read from the single deepest pool" />
+          </div>
+          <p className="mt-4">
+            The attack these prevent is straightforward: since fills settle at the quoted price
+            regardless of size, the engine is only fair if the underlying market is expensive to
+            move. A trader who can push a thin pool for a few hundred dollars could multiply a
+            simulated position against a price they created. The floors make that manipulation cost
+            more than the prize is worth. Tokens that later fall under the floor become sell-only —
+            you can always exit, you can never build on a broken pool.
+          </p>
+
+          <H2 id="infra">price infrastructure</H2>
+          <p>The feed is layered, each layer replaceable without touching the game:</p>
+          <ul className="mt-4 space-y-3">
+            <li>
+              <b className="text-[var(--ink)]">Discovery.</b> The eligible universe is rebuilt
+              every 60 seconds from indexed PumpSwap pools plus trending Solana pools, filtered by
+              the listing floors, deduplicated to the deepest pool per mint.
+            </li>
+            <li>
+              <b className="text-[var(--ink)]">Marks.</b> Live prices arrive by polling — a single
+              batched call for the whole universe — at ~3s on the free tier. With a Helius API key
+              configured, pricing switches to Helius DAS <code className="mono text-[12px]">getAssetBatch</code>{" "}
+              at ~1.5s ticks, and the free source drops back to slow metadata refreshes (market
+              cap, liquidity, volume, logos). The top bar reports which lane is live.
+            </li>
+            <li>
+              <b className="text-[var(--ink)]">Candles.</b> OHLCV history loads per pool and
+              timeframe, then the current candle is painted forward in real time from the mark
+              feed between full resyncs every 20 seconds. Clock skew between the client and the
+              data source merges into the last candle rather than dropping ticks.
+            </li>
+            <li>
+              <b className="text-[var(--ink)]">Isolation.</b> Every upstream call is proxied and
+              cached server-side, so a thousand open terminals cost the same upstream quota as
+              one.
+            </li>
+          </ul>
+          <Callout title="planned">
+            Per-swap streaming (Helius websockets / Yellowstone gRPC) replaces polling entirely —
+            sub-second candles built from raw swap events, the same architecture the paid
+            terminals use. The polling lane stays as the fallback.
+          </Callout>
+
+          <H2 id="stack">the stack</H2>
+          <div className="glass p-5 mt-5">
+            <Row k="framework" v="Next.js 16 · React 19 · TypeScript" />
+            <Row k="book & rules" v="zustand store, persisted locally in the preview" />
+            <Row k="charts" v="lightweight-charts v5 (TradingView engine)" />
+            <Row k="landing scene" v="hand-written WebGL fragment shader, zero deps" />
+            <Row k="styling" v="Tailwind v4 + custom glass/HUD design system" />
+            <Row k="data proxy" v="edge route handlers with per-source caching" />
+          </div>
+          <p className="mt-4">
+            One deliberate constraint: every game rule lives in a single constants file that both
+            the engine and every page import. Change a number once and the terminal, the checkout,
+            the landing page and this document all follow. Nothing here is hand-copied.
+          </p>
+
+          <H2 id="funded">funded accounts</H2>
+          <p>
+            Clearing challenge 03 unlocks a funded account, traded on a {RULES.profitSplit * 100}/
+            {100 - RULES.profitSplit * 100} profit split in the trader&apos;s favor and settled in
+            USDC. Two entry tiers, one gauntlet:
+          </p>
+          <div className="glass p-5 mt-5">
+            <Row k="free roll" v={`$0 entry → $${RULES.freeRewardUsd} funded account`} />
+            <Row
+              k="standard"
+              v={`$${RULES.entryFeeUsd} entry ($${entryFeeGfUsd()} in ${RULES.token.symbol}) → $${fundedAccountUsd()} funded — ${RULES.fundedMultiple}x`}
+            />
+          </div>
+          <p className="mt-4">
+            The rules are identical in both tiers — same targets, same floor, same fills minimum.
+            The free roll exists so the gauntlet can be attempted without spending anything; the
+            reward scales with the entry, not the difficulty. The evaluation you passed is the
+            risk model the funded account inherits: same exposure cap, same drawdown discipline.
+          </p>
+          <Callout title="preview build">
+            In this build the funded account and all payments are simulated end-to-end. The
+            mechanism is final; the money is not yet wired in. This document will say so plainly
+            for as long as that is true.
+          </Callout>
+
+          <H2 id="token">the {RULES.token.symbol} token</H2>
+          <p>
+            {RULES.token.symbol} is the platform token, and unlike most, it has exactly one job:
+          </p>
+          <div className="glass p-5 mt-5">
+            <Row k="utility" v={`pay the entry fee at a ${RULES.token.discount * 100}% discount`} />
+            <Row
+              k="entry in usdc"
+              v={`$${RULES.entryFeeUsd.toFixed(2)}`}
+            />
+            <Row
+              k={`entry in ${RULES.token.symbol}`}
+              v={`$${entryFeeGfUsd().toFixed(2)} equivalent, at market rate`}
+            />
+            <Row k="mint" v={RULES.token.mint || "not yet deployed — TBD"} />
+          </div>
+          <p className="mt-4">
+            No governance theater, no gated formats, no claim on prize pools. Holding{" "}
+            {RULES.token.symbol} does one thing: it makes every attempt cheaper. That keeps the
+            token&apos;s value proposition honest — it is a discount coupon with a market price,
+            and demand for it scales exactly with demand for seats.
+          </p>
+          <Callout title="not deployed yet">
+            The token is not live. Until a mint address appears above — verifiable on-chain — any
+            token claiming to be {RULES.token.symbol} is not ours. Nothing on this page is a
+            promise of future value, and no supply, allocation or listing is announced here.
+          </Callout>
+
+          <H2 id="limits">limits & risks</H2>
+          <p>Stated plainly, because a whitepaper that only lists strengths is marketing:</p>
+          <ul className="mt-4 space-y-3">
+            <li>
+              <b className="text-[var(--ink)]">Simulated fills are not real fills.</b> A result
+              here demonstrates timing against live prices, not that the same size could have been
+              executed on-chain at the same price.
+            </li>
+            <li>
+              <b className="text-[var(--ink)]">Market data is third-party.</b> Prices, pool
+              statistics and eligibility checks depend on external indexers. If they are wrong or
+              unreachable, quotes and floors are affected.
+            </li>
+            <li>
+              <b className="text-[var(--ink)]">This build has no accounts.</b> Progress lives in
+              the browser. The production version moves the book server-side — until then, a
+              result is a preview, not a record.
+            </li>
+            <li>
+              <b className="text-[var(--ink)]">Floors are a deterrent, not a proof.</b> They raise
+              the cost of manipulating a thin market above the prize on offer; they do not make
+              manipulation impossible.
+            </li>
+            <li>
+              <b className="text-[var(--ink)]">Entry fees will be at risk.</b> Once payments go
+              live, a losing run forfeits the fee. Nothing here is investment advice and no return
+              is promised.
+            </li>
+          </ul>
+
+          <H2 id="verify">verifying this document</H2>
+          <p>
+            Every number above is rendered from{" "}
+            <code className="mono text-[12px] text-[var(--cyan)]">src/lib/rules.ts</code> — the
+            same constants the fill engine, the risk checks and the checkout execute. If the
+            product changes, this page changes in the same commit, or the build fails. Where
+            something is simulated or unimplemented, this document says so in an amber box rather
+            than implying otherwise.
+          </p>
+
+          <div className="flex gap-3 mt-12">
+            <Link href="/enter" className="btn btn-primary !px-8 !py-3.5">
+              take your seat ▸
+            </Link>
+            <Link href="/leaderboard" className="btn !px-8 !py-3.5">
+              see the board
+            </Link>
+          </div>
+        </article>
+      </div>
+    </div>
+  );
+}

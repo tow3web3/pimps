@@ -1,0 +1,236 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import {
+  createChart,
+  CandlestickSeries,
+  HistogramSeries,
+  ColorType,
+  CrosshairMode,
+  type IChartApi,
+  type ISeriesApi,
+  type UTCTimestamp,
+} from "lightweight-charts";
+import type { Candle } from "@/lib/types";
+import { pricePrecision } from "@/lib/format";
+
+const UP = "#34d399";
+const DOWN = "#fb7185";
+
+const TIMEFRAMES = [
+  { label: "1m", tf: "minute", agg: 1, secs: 60 },
+  { label: "5m", tf: "minute", agg: 5, secs: 300 },
+  { label: "15m", tf: "minute", agg: 15, secs: 900 },
+  { label: "1h", tf: "hour", agg: 1, secs: 3600 },
+  { label: "4h", tf: "hour", agg: 4, secs: 14400 },
+  { label: "1D", tf: "day", agg: 1, secs: 86400 },
+] as const;
+
+type Bar = { time: UTCTimestamp; open: number; high: number; low: number; close: number };
+
+export default function CandleChart({
+  pairAddress,
+  livePriceUsd,
+}: {
+  pairAddress: string;
+  livePriceUsd?: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const lastBarRef = useRef<Bar | null>(null);
+  const fellBackRef = useRef<Set<string>>(new Set());
+  const [tfIdx, setTfIdx] = useState(1); // 5m default
+  const [empty, setEmpty] = useState(false);
+
+  // build the chart + load candles on pool / timeframe change
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !pairAddress) return;
+    let disposed = false;
+
+    const chart = createChart(el, {
+      autoSize: true,
+      layout: {
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: "#5b6580",
+        fontFamily: "var(--font-jbmono), monospace",
+        fontSize: 11,
+        attributionLogo: false,
+      },
+      grid: {
+        vertLines: { color: "rgba(140,160,255,0.05)" },
+        horzLines: { color: "rgba(140,160,255,0.05)" },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: "rgba(34,211,238,0.4)", labelBackgroundColor: "#0d1120" },
+        horzLine: { color: "rgba(34,211,238,0.4)", labelBackgroundColor: "#0d1120" },
+      },
+      rightPriceScale: { borderVisible: false },
+      timeScale: {
+        borderVisible: false,
+        timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 4,
+      },
+    });
+    chartRef.current = chart;
+
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: UP,
+      downColor: DOWN,
+      borderUpColor: UP,
+      borderDownColor: DOWN,
+      wickUpColor: "rgba(52,211,153,0.7)",
+      wickDownColor: "rgba(251,113,133,0.7)",
+    });
+    seriesRef.current = series;
+
+    const vol = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume" },
+      priceScaleId: "vol",
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+    chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    volRef.current = vol;
+
+    const { tf, agg } = TIMEFRAMES[tfIdx];
+    let loadedOnce = false;
+
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/ohlcv?pool=${pairAddress}&tf=${tf}&agg=${agg}`);
+        const data: { candles: Candle[] } = await res.json();
+        if (disposed || !data.candles) return;
+        if (data.candles.length === 0) {
+          // only declare empty if we never had data — a flaky refresh keeps the chart
+          if (!loadedOnce) {
+            // this pool may simply have no fine-grained history: fall back once to 1h
+            if (tf === "minute" && !fellBackRef.current.has(pairAddress)) {
+              fellBackRef.current.add(pairAddress);
+              setTfIdx(3);
+            } else {
+              setEmpty(true);
+            }
+          }
+          return;
+        }
+        loadedOnce = true;
+        setEmpty(false);
+
+        const px = data.candles[data.candles.length - 1].close;
+        series.applyOptions({ priceFormat: { type: "price", ...pricePrecision(px) } });
+
+        series.setData(
+          data.candles.map((c) => ({
+            time: c.time as UTCTimestamp,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          })),
+        );
+        vol.setData(
+          data.candles.map((c) => ({
+            time: c.time as UTCTimestamp,
+            value: c.volume,
+            color: c.close >= c.open ? "rgba(52,211,153,0.28)" : "rgba(251,113,133,0.28)",
+          })),
+        );
+        const last = data.candles[data.candles.length - 1];
+        lastBarRef.current = {
+          time: last.time as UTCTimestamp,
+          open: last.open,
+          high: last.high,
+          low: last.low,
+          close: last.close,
+        };
+      } catch {
+        if (!disposed) setEmpty(true);
+      }
+    };
+
+    load();
+    // 30s: candles stay honest without eating the shared GeckoTerminal quota —
+    // the live tick paints the current bar between resyncs anyway
+    const trueUp = setInterval(load, 30_000);
+
+    return () => {
+      disposed = true;
+      clearInterval(trueUp);
+      chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+      volRef.current = null;
+      lastBarRef.current = null;
+    };
+  }, [pairAddress, tfIdx]);
+
+  // paint the live tick onto the current candle
+  useEffect(() => {
+    const series = seriesRef.current;
+    const last = lastBarRef.current;
+    if (!series || !last || !livePriceUsd || livePriceUsd <= 0) return;
+    const secs = TIMEFRAMES[tfIdx].secs;
+    // clamp to the series clock — a client clock behind the data source must
+    // merge into the last candle, never emit an out-of-order time (silent no-op)
+    const clientBucket = (Math.floor(Date.now() / 1000 / secs) * secs) as UTCTimestamp;
+    const bucket = (clientBucket > last.time ? clientBucket : last.time) as UTCTimestamp;
+
+    let bar: Bar;
+    if (bucket > last.time) {
+      bar = {
+        time: bucket,
+        open: last.close,
+        high: Math.max(last.close, livePriceUsd),
+        low: Math.min(last.close, livePriceUsd),
+        close: livePriceUsd,
+      };
+    } else {
+      bar = {
+        ...last,
+        high: Math.max(last.high, livePriceUsd),
+        low: Math.min(last.low, livePriceUsd),
+        close: livePriceUsd,
+      };
+    }
+    lastBarRef.current = bar;
+    try {
+      series.update(bar);
+    } catch {
+      // stale series during a reload — safe to skip a tick
+    }
+  }, [livePriceUsd, tfIdx]);
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex items-center gap-1 px-3 pt-2 pb-1">
+        {TIMEFRAMES.map((t, i) => (
+          <button
+            key={t.label}
+            onClick={() => setTfIdx(i)}
+            className={`mono text-[11px] px-2.5 py-1 rounded-md transition-colors ${
+              i === tfIdx
+                ? "text-[var(--cyan)] bg-[rgba(34,211,238,0.1)] border border-[rgba(34,211,238,0.35)]"
+                : "text-[var(--ink-3)] hover:text-[var(--ink-2)] border border-transparent"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+        <span className="ml-auto panel-title pr-2">live · usd</span>
+      </div>
+      <div className="relative flex-1 min-h-0">
+        <div ref={containerRef} className="absolute inset-0" />
+        {empty && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="mono text-xs text-[var(--ink-3)]">no chart data for this pool yet</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
