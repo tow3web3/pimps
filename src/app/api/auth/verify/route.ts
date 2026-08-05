@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifyAndCreateSession } from "@/server/auth";
+import { clientKey, rateLimit } from "@/server/rateLimit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(`verify:${clientKey(req)}`, 20, 60_000);
+  if (limited) return limited;
   const { wallet, signature } = await req.json().catch(() => ({}));
   if (typeof wallet !== "string" || typeof signature !== "string") {
     return NextResponse.json({ error: "invalid payload" }, { status: 400 });

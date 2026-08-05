@@ -17,13 +17,15 @@ export default function TopBar() {
   const feedLive = Date.now() - lastTick < 15_000;
 
   return (
-    <header className="glass !rounded-none !border-x-0 !border-t-0 flex items-center gap-4 px-4 h-[52px] shrink-0 z-40">
-      <Link href="/" className="flex items-center gap-2 group">
+    <header className="glass !rounded-none !border-x-0 !border-t-0 flex items-center gap-2 sm:gap-4 px-2 sm:px-4 h-[52px] shrink-0 z-40 overflow-hidden">
+      <Link href="/" className="flex items-center gap-2 group shrink-0">
         <span className="w-2 h-2 rotate-45 bg-[var(--cyan)] shadow-[0_0_12px_var(--cyan-glow)] group-hover:shadow-[0_0_20px_var(--cyan-glow)] transition-shadow" />
-        <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
+        <span className="mono font-bold tracking-[0.18em] sm:tracking-[0.3em] text-[11px] sm:text-sm">
+          {BRAND}
+        </span>
       </Link>
 
-      <span className="chip !text-[var(--cyan)] !border-[rgba(34,211,238,0.35)]">
+      <span className="chip !text-[var(--cyan)] !border-[rgba(34,211,238,0.35)] hidden sm:inline-block">
         {game.funded
           ? `funded · ${fmtUsd(game.funded.principalUsd)}`
           : `challenge 0${RULES.phases[game.phase].num} · ${RULES.phases[game.phase].gainLabel}`}
@@ -36,14 +38,16 @@ export default function TopBar() {
         </span>
       </div>
 
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-2 sm:gap-4 min-w-0">
         {solUsd > 0 && (
-          <span className="mono text-[11px] text-[var(--ink-2)] hidden sm:block">
+          <span className="mono text-[11px] text-[var(--ink-2)] hidden md:block">
             SOL {fmtUsd(solUsd)}
           </span>
         )}
-        <span className="mono text-[13px]">
-          <span className="text-[var(--ink-3)] text-[10px] tracking-[0.18em] mr-1.5">EQUITY</span>
+        <span className="mono text-[12px] sm:text-[13px] whitespace-nowrap">
+          <span className="text-[var(--ink-3)] text-[10px] tracking-[0.18em] mr-1.5 hidden sm:inline">
+            EQUITY
+          </span>
           {fmtSol(game.equity, 2)} <span className="text-[var(--ink-3)] text-[10px]">SOL</span>
         </span>
         <button
@@ -51,20 +55,25 @@ export default function TopBar() {
             if (wallet) void disconnectWallet();
             else connectWallet().catch(() => {});
           }}
-          className={`chip transition-colors ${
+          className={`chip shrink-0 whitespace-nowrap transition-colors ${
             wallet
               ? "!text-[var(--up)] !border-[rgba(52,211,153,0.45)] hover:!text-[var(--down)] hover:!border-[rgba(251,113,133,0.45)]"
               : "!text-[var(--cyan)] !border-[rgba(34,211,238,0.45)] hover:bg-[rgba(34,211,238,0.08)]"
           }`}
           title={wallet ? "click to disconnect" : "sign in with your Solana wallet"}
         >
-          {connecting
-            ? "connecting…"
-            : wallet
-              ? `◆ ${wallet.slice(0, 4)}…${wallet.slice(-4)}`
-              : "connect wallet"}
+          {connecting ? (
+            "connecting…"
+          ) : wallet ? (
+            `◆ ${wallet.slice(0, 4)}…${wallet.slice(-4)}`
+          ) : (
+            <>
+              <span className="sm:hidden">◆ connect</span>
+              <span className="hidden sm:inline">connect wallet</span>
+            </>
+          )}
         </button>
-        <nav className="flex items-center gap-1.5">
+        <nav className="hidden sm:flex items-center gap-1.5">
           <Link
             href="/terminal"
             className={`chip transition-colors ${path === "/terminal" ? "!text-[var(--cyan)] !border-[rgba(34,211,238,0.4)]" : "hover:text-[var(--ink)]"}`}
@@ -83,6 +92,24 @@ export default function TopBar() {
           >
             dashboard
           </Link>
+        </nav>
+        {/* compact nav for phones */}
+        <nav className="flex sm:hidden items-center gap-1">
+          {(
+            [
+              ["/terminal", "◪"],
+              ["/leaderboard", "▤"],
+              ["/dashboard", "◫"],
+            ] as const
+          ).map(([href, icon]) => (
+            <Link
+              key={href}
+              href={href}
+              className={`chip !px-2.5 !text-[13px] ${path === href ? "!text-[var(--cyan)] !border-[rgba(34,211,238,0.4)]" : ""}`}
+            >
+              {icon}
+            </Link>
+          ))}
         </nav>
       </div>
     </header>

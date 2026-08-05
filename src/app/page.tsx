@@ -341,6 +341,9 @@ export default function Landing() {
             <Link href="/leaderboard" className="mono text-[10px] text-[var(--ink-3)] hover:text-[var(--cyan)] transition-colors">
               leaderboard
             </Link>
+            <Link href="/terms" className="mono text-[10px] text-[var(--ink-3)] hover:text-[var(--cyan)] transition-colors">
+              terms &amp; risk
+            </Link>
           </div>
           <p className="mono text-[10px] text-[var(--ink-3)] text-center md:text-right max-w-xl leading-relaxed">
             memecoins are violently volatile. entry fees are at risk and nothing here is investment

@@ -7,6 +7,10 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   const { db } = await import("./server/db");
+
+  const { armBackups } = await import("./server/backup");
+  armBackups();
+
   const { Connection, Keypair, PublicKey, Transaction } = await import("@solana/web3.js");
   const {
     createAssociatedTokenAccountIdempotentInstruction,

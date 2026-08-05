@@ -1,13 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useGame } from "@/lib/store";
-import { useMarketFeed } from "@/lib/market";
-import { buildBoard, insertYou, type BoardRow } from "@/lib/leaderboard";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { RULES } from "@/lib/rules";
 import TopBar from "@/components/TopBar";
 
-function Avatar({ row, size = 26 }: { row: BoardRow; size?: number }) {
+interface Row {
+  name: string;
+  phase: number;
+  kind: string;
+  returnPct: number;
+  trades: number;
+  status: "live" | "cleared" | "failed";
+  isYou?: boolean;
+}
+interface Board {
+  rows: Row[];
+  stats: { traders: number; live: number; funded: number; cleared: number };
+}
+
+function Avatar({ row, size = 26 }: { row: Row; size?: number }) {
+  // deterministic hue from the displayed name — same trader, same colour
+  let h = 0;
+  for (let i = 0; i < row.name.length; i++) h = (h * 31 + row.name.charCodeAt(i)) % 360;
   return (
     <span
       className="rounded-full shrink-0 border border-[var(--border)]"
@@ -16,60 +31,55 @@ function Avatar({ row, size = 26 }: { row: BoardRow; size?: number }) {
         height: size,
         background: row.isYou
           ? "linear-gradient(135deg, var(--cyan), var(--violet))"
-          : `linear-gradient(135deg, hsl(${row.hue} 60% 45% / 0.9), hsl(${(row.hue + 60) % 360} 60% 30% / 0.9))`,
+          : `linear-gradient(135deg, hsl(${h} 55% 45% / 0.9), hsl(${(h + 60) % 360} 55% 30% / 0.9))`,
         boxShadow: row.isYou ? "0 0 14px var(--cyan-glow)" : "none",
       }}
     />
   );
 }
 
-function StatusChip({ status }: { status: BoardRow["status"] }) {
-  if (status === "cleared")
+function StatusChip({ row }: { row: Row }) {
+  if (row.kind === "funded")
+    return (
+      <span className="chip !text-[var(--violet)] !border-[rgba(167,139,250,0.45)]">◆ funded</span>
+    );
+  if (row.status === "cleared")
     return <span className="chip !text-[var(--up)] !border-[rgba(52,211,153,0.4)]">✓ cleared</span>;
-  if (status === "failed")
+  if (row.status === "failed")
     return <span className="chip !text-[var(--down)] !border-[rgba(251,113,133,0.4)]">✕ failed</span>;
   return <span className="chip !text-[var(--cyan)] !border-[rgba(34,211,238,0.4)]">● live</span>;
 }
 
 export default function LeaderboardPage() {
-  useMarketFeed();
-  const game = useGame();
-  const [now, setNow] = useState(() => Date.now());
-  const [mounted, setMounted] = useState(false);
+  const [board, setBoard] = useState<Board | null>(null);
+  const [err, setErr] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    const t = setInterval(() => setNow(Date.now()), 3000);
-    return () => clearInterval(t);
+    let stop = false;
+    const load = async () => {
+      try {
+        const r = await fetch("/api/leaderboard");
+        if (!r.ok) throw new Error();
+        const j = await r.json();
+        if (!stop) {
+          setBoard(j);
+          setErr(false);
+        }
+      } catch {
+        if (!stop) setErr(true);
+      }
+    };
+    load();
+    const iv = setInterval(load, 10_000);
+    return () => {
+      stop = true;
+      clearInterval(iv);
+    };
   }, []);
 
-  const rows = useMemo(() => {
-    if (!mounted) return [];
-    return insertYou(buildBoard(now), {
-      returnPct: ((game.equity - RULES.startBalance) / RULES.startBalance) * 100,
-      phase: game.phase + 1,
-      trades: game.trades.length,
-      status:
-        game.status === "failed" ? "failed" : game.status === "active" ? "live" : "cleared",
-    });
-  }, [now, mounted, game.equity, game.phase, game.trades.length, game.status]);
-
+  const rows = board?.rows ?? [];
   const podium = rows.slice(0, 3);
   const yourRank = rows.findIndex((r) => r.isYou) + 1;
-
-  // the board depends on wall-clock — render only after mount to avoid hydration drift
-  if (!mounted) {
-    return (
-      <div className="min-h-dvh flex flex-col">
-        <TopBar />
-        <div className="flex-1 flex items-center justify-center">
-          <span className="mono text-xs tracking-[0.3em] text-[var(--ink-3)] animate-pulse">
-            LOADING BOARD…
-          </span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-dvh flex flex-col">
@@ -79,8 +89,8 @@ export default function LeaderboardPage() {
         <div className="flex items-end justify-between flex-wrap gap-3">
           <div>
             <p className="panel-title">the board</p>
-            <h1 className="text-3xl font-bold mt-1">
-              Leaderboard{" "}
+            <h1 className="text-2xl md:text-3xl font-bold mt-1">
+              Leaderboard
               {yourRank > 0 && (
                 <span className="mono text-sm text-[var(--cyan)] align-middle ml-2">
                   you: #{yourRank}
@@ -88,97 +98,137 @@ export default function LeaderboardPage() {
               )}
             </h1>
           </div>
-          <span className="chip">preview cohort · simulated peers · your run is real</span>
-        </div>
-
-        {/* podium */}
-        <div className="grid grid-cols-3 gap-3 mt-6">
-          {podium.map((r, i) => (
-            <div
-              key={r.name}
-              className={`glass p-4 text-center relative ${
-                i === 0 ? "!border-[rgba(251,191,36,0.45)] shadow-[0_0_40px_rgba(251,191,36,0.08)]" : ""
-              } ${r.isYou ? "!border-[rgba(34,211,238,0.6)]" : ""}`}
-            >
-              <div className="mono text-[10px] tracking-[0.3em] text-[var(--ink-3)]">
-                {i === 0 ? "◆ 01" : i === 1 ? "02" : "03"}
-              </div>
-              <div className="flex justify-center mt-2">
-                <Avatar row={r} size={38} />
-              </div>
-              <div className={`mono text-[13px] mt-2 truncate ${r.isYou ? "text-[var(--cyan)]" : ""}`}>
-                {r.name}
-              </div>
-              <div
-                className={`mono text-xl font-bold mt-1 ${r.returnPct >= 0 ? "text-up" : "text-down"}`}
-              >
-                {r.returnPct >= 0 ? "+" : ""}
-                {r.returnPct.toFixed(1)}%
-              </div>
-              <div className="mono text-[10px] text-[var(--ink-3)] mt-1">
-                challenge 0{r.phase}
-              </div>
+          {board && (
+            <div className="flex gap-2 flex-wrap">
+              <span className="chip">{board.stats.traders} traders</span>
+              <span className="chip !text-[var(--cyan)] !border-[rgba(34,211,238,0.35)]">
+                {board.stats.live} live
+              </span>
+              {board.stats.funded > 0 && (
+                <span className="chip !text-[var(--violet)] !border-[rgba(167,139,250,0.4)]">
+                  {board.stats.funded} funded
+                </span>
+              )}
             </div>
-          ))}
+          )}
         </div>
 
-        {/* table */}
-        <div className="glass mt-4 overflow-hidden">
-          <table className="w-full mono text-[12px]">
-            <thead>
-              <tr className="text-[var(--ink-3)] text-left border-b border-[var(--border)]">
-                <th className="font-normal px-4 py-2.5 w-12">#</th>
-                <th className="font-normal px-2 py-2.5">trader</th>
-                <th className="font-normal px-2 py-2.5">phase</th>
-                <th className="font-normal px-2 py-2.5 text-right">return</th>
-                <th className="font-normal px-2 py-2.5 text-right hidden sm:table-cell">fills</th>
-                <th className="font-normal px-4 py-2.5 text-right">status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr
-                  key={r.name}
-                  className={`border-t border-[var(--border)] ${
-                    r.isYou
-                      ? "bg-[rgba(34,211,238,0.07)] border-l-2 border-l-[var(--cyan)]"
-                      : "hover:bg-[rgba(140,160,255,0.03)]"
-                  }`}
+        {!board && !err && (
+          <p className="mono text-xs text-[var(--ink-3)] text-center py-16 animate-pulse">
+            LOADING BOARD…
+          </p>
+        )}
+        {err && (
+          <p className="mono text-xs text-[var(--down)] text-center py-16">board unavailable</p>
+        )}
+
+        {board && rows.length === 0 && (
+          <div className="glass p-10 mt-6 text-center">
+            <p className="mono text-sm text-[var(--ink-2)]">no runs on the board yet</p>
+            <p className="mono text-[11px] text-[var(--ink-3)] mt-2">
+              connect a wallet and take a seat — the first name here could be yours
+            </p>
+            <Link href="/enter" className="btn btn-primary !px-8 !py-3 mt-6 inline-block">
+              take a seat ▸
+            </Link>
+          </div>
+        )}
+
+        {rows.length > 0 && (
+          <>
+            <div className="grid grid-cols-3 gap-2 md:gap-3 mt-6">
+              {podium.map((r, i) => (
+                <div
+                  key={r.name + i}
+                  className={`glass p-3 md:p-4 text-center ${
+                    i === 0 ? "!border-[rgba(251,191,36,0.45)]" : ""
+                  } ${r.isYou ? "!border-[rgba(34,211,238,0.6)]" : ""}`}
                 >
-                  <td className="px-4 py-2.5 text-[var(--ink-3)]">{i + 1}</td>
-                  <td className="px-2 py-2.5">
-                    <span className="flex items-center gap-2.5">
-                      <Avatar row={r} size={22} />
-                      <span className={r.isYou ? "text-[var(--cyan)] font-medium" : ""}>
-                        {r.name}
-                        {r.isYou && <span className="text-[var(--ink-3)]"> · att.{game.attempt}</span>}
-                      </span>
-                    </span>
-                  </td>
-                  <td className="px-2 py-2.5 text-[var(--ink-2)]">0{r.phase}</td>
-                  <td
-                    className={`px-2 py-2.5 text-right font-medium ${
-                      r.returnPct >= 0 ? "text-up" : "text-down"
-                    }`}
+                  <div className="mono text-[10px] tracking-[0.3em] text-[var(--ink-3)]">
+                    {i === 0 ? "◆ 01" : i === 1 ? "02" : "03"}
+                  </div>
+                  <div className="flex justify-center mt-2">
+                    <Avatar row={r} size={34} />
+                  </div>
+                  <div
+                    className={`mono text-[11px] md:text-[13px] mt-2 truncate ${r.isYou ? "text-[var(--cyan)]" : ""}`}
                   >
-                    {r.returnPct >= 0 ? "▲ +" : "▼ "}
-                    {Math.abs(r.returnPct).toFixed(1)}%
-                  </td>
-                  <td className="px-2 py-2.5 text-right text-[var(--ink-2)] hidden sm:table-cell">
-                    {r.trades}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <StatusChip status={r.status} />
-                  </td>
-                </tr>
+                    {r.name}
+                  </div>
+                  <div
+                    className={`mono text-base md:text-xl font-bold mt-1 ${r.returnPct >= 0 ? "text-up" : "text-down"}`}
+                  >
+                    {r.returnPct >= 0 ? "+" : ""}
+                    {r.returnPct.toFixed(1)}%
+                  </div>
+                  <div className="mono text-[10px] text-[var(--ink-3)] mt-1">
+                    {r.kind === "funded" ? "funded" : `challenge 0${r.phase}`}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
 
-        <p className="mono text-[10px] text-[var(--ink-3)] mt-3 text-center">
-          returns are % on the {RULES.startBalance} SOL phase stack · board refreshes live · peers
-          are simulated until real accounts ship
+            <div className="glass mt-4 overflow-x-auto">
+              <table className="w-full mono text-[11px] md:text-[12px] min-w-[420px]">
+                <thead>
+                  <tr className="text-[var(--ink-3)] text-left border-b border-[var(--border)]">
+                    <th className="font-normal px-3 md:px-4 py-2.5 w-10">#</th>
+                    <th className="font-normal px-2 py-2.5">trader</th>
+                    <th className="font-normal px-2 py-2.5">phase</th>
+                    <th className="font-normal px-2 py-2.5 text-right">return</th>
+                    <th className="font-normal px-2 py-2.5 text-right hidden sm:table-cell">
+                      fills
+                    </th>
+                    <th className="font-normal px-3 md:px-4 py-2.5 text-right">status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr
+                      key={r.name + i}
+                      className={`border-t border-[var(--border)] ${
+                        r.isYou
+                          ? "bg-[rgba(34,211,238,0.07)] border-l-2 border-l-[var(--cyan)]"
+                          : "hover:bg-[rgba(140,160,255,0.03)]"
+                      }`}
+                    >
+                      <td className="px-3 md:px-4 py-2.5 text-[var(--ink-3)]">{i + 1}</td>
+                      <td className="px-2 py-2.5">
+                        <span className="flex items-center gap-2">
+                          <Avatar row={r} size={20} />
+                          <span className={r.isYou ? "text-[var(--cyan)] font-medium" : ""}>
+                            {r.name}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-2 py-2.5 text-[var(--ink-2)]">
+                        {r.kind === "funded" ? "—" : `0${r.phase}`}
+                      </td>
+                      <td
+                        className={`px-2 py-2.5 text-right font-medium ${
+                          r.returnPct >= 0 ? "text-up" : "text-down"
+                        }`}
+                      >
+                        {r.returnPct >= 0 ? "▲ +" : "▼ "}
+                        {Math.abs(r.returnPct).toFixed(1)}%
+                      </td>
+                      <td className="px-2 py-2.5 text-right text-[var(--ink-2)] hidden sm:table-cell">
+                        {r.trades}
+                      </td>
+                      <td className="px-3 md:px-4 py-2.5 text-right">
+                        <StatusChip row={r} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        <p className="mono text-[10px] text-[var(--ink-3)] mt-3 text-center leading-relaxed">
+          real runs only · return is % on the {RULES.startBalance} SOL phase stack, marked live ·
+          wallet-less preview runs are never listed
         </p>
       </main>
     </div>

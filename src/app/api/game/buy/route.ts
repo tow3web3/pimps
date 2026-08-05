@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionWallet } from "@/server/auth";
 import { buy, clientState } from "@/server/engine";
+import { rateLimit } from "@/server/rateLimit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const wallet = await sessionWallet();
   if (!wallet) return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+  const limited = rateLimit(`trade:${wallet}`, 60, 60_000);
+  if (limited) return limited;
   const { mint, solAmount } = await req.json().catch(() => ({}));
   if (typeof mint !== "string" || typeof solAmount !== "number" || !isFinite(solAmount)) {
     return NextResponse.json({ error: "invalid order" }, { status: 400 });
