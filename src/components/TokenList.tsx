@@ -56,6 +56,8 @@ export default function TokenList() {
   const [minMcap, setMinMcap] = useState(0);
   const [minVol, setMinVol] = useState(0);
 
+  const heldMints = useMemo(() => new Set(positions.map((p) => p.mint)), [positions]);
+
   const rows = useMemo(() => {
     let list = universe.map((m) => tokens[m]).filter(Boolean);
     if (minMcap > 0) list = list.filter((t) => t.mcapUsd >= minMcap);
@@ -69,10 +71,16 @@ export default function TokenList() {
           t.mint.toLowerCase().startsWith(needle),
       );
     }
+    // an open position is ALWAYS listed, whatever the filters or its market cap:
+    // you must be able to find and exit what you hold
+    const shown = new Set(list.map((t) => t.mint));
+    for (const p of positions) {
+      if (shown.has(p.mint)) continue;
+      const t = tokens[p.mint];
+      if (t) list = [t, ...list];
+    }
     return [...list].sort(SORTS[sort]);
-  }, [tokens, universe, q, sort, minMcap, minVol]);
-
-  const heldMints = useMemo(() => new Set(positions.map((p) => p.mint)), [positions]);
+  }, [tokens, universe, positions, q, sort, minMcap, minVol]);
 
   return (
     <div className="glass flex flex-col h-full min-h-0 overflow-hidden">
@@ -159,8 +167,16 @@ export default function TokenList() {
                   )}
                 </div>
                 <div className="mono text-[10px] text-[var(--ink-3)]">
-                  mc {fmtCompact(t.mcapUsd)}
-                  {t.ageHours ? ` · ${fmtAge(t.ageHours)}` : ""}
+                  {t.mcapUsd < RULES.minMcapUsd ? (
+                    <span className="text-[var(--amber)]">
+                      mc {fmtCompact(t.mcapUsd)} · sell only
+                    </span>
+                  ) : (
+                    <>
+                      mc {fmtCompact(t.mcapUsd)}
+                      {t.ageHours ? ` · ${fmtAge(t.ageHours)}` : ""}
+                    </>
+                  )}
                 </div>
               </div>
               <div className="text-right shrink-0">
