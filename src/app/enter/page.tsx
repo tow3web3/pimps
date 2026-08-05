@@ -215,8 +215,8 @@ export default function EnterPage() {
                   </div>
                   <div className="mono text-4xl font-bold mt-3 text-up">$0</div>
                   <p className="mono text-[11px] text-[var(--ink-2)] mt-3 leading-relaxed">
-                    same three challenges, same rules · pass and get a $
-                    {RULES.freeRewardUsd} funded account instead of $
+                    same three challenges, same rules · pass and trade a $
+                    {RULES.freeRewardUsd} account instead of $
                     {RULES.entryFeeUsd * RULES.fundedMultiple}
                   </p>
                 </button>
@@ -270,10 +270,11 @@ export default function EnterPage() {
               <ul className="mono text-[11px] text-[var(--ink-2)] mt-6 space-y-1.5 max-w-md mx-auto">
                 <li>▸ {RULES.startBalance} SOL demo stack per phase · live pump.fun prices</li>
                 <li>
-                  ▸ pass all three → $
+                  ▸ pass all three → trade $
                   {method === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple}{" "}
-                  funded account · {RULES.profitSplit * 100}/{100 - RULES.profitSplit * 100} split
+                  of the firm&apos;s money
                 </li>
+                <li>▸ keep {RULES.profitSplit * 100}% of your profits, paid to your Phantom</li>
                 <li>▸ a losing run costs this fee, nothing more</li>
               </ul>
 

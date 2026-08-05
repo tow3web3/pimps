@@ -51,8 +51,8 @@ export default function Landing() {
           <p className="rise rise-3 max-w-xl text-[var(--ink-2)] mt-6 text-sm md:text-base leading-relaxed">
             Run a {RULES.startBalance} SOL demo stack on live pump.fun markets. Clear three
             challenges — {RULES.phases.map((p) => p.gainLabel).join(", ")} — without breaking the
-            floor, and the firm puts ${funded} of its own money behind you. Profits land in your
-            Phantom.
+            floor, and trade ${funded} of the firm&apos;s money. Keep{" "}
+            {RULES.profitSplit * 100}% of what you make, paid to your Phantom.
           </p>
           <div className="rise rise-4 flex flex-col sm:flex-row items-center gap-3 mt-8">
             <Link href="/terminal" className="btn btn-primary !text-sm !px-10 !py-4">
@@ -124,8 +124,8 @@ export default function Landing() {
               {RULES.fundedMultiple}x your ${RULES.entryFeeUsd} entry
             </p>
             <p className="text-[12px] text-[var(--ink-2)] mt-4 leading-relaxed">
-              A funded account with an {RULES.profitSplit * 100}/{100 - RULES.profitSplit * 100}{" "}
-              profit split in your favor. Paid in USDC.
+              Trade ${funded} of the firm&apos;s money. Keep {RULES.profitSplit * 100}% of what you
+              make, paid to your Phantom.
             </p>
           </div>
         </div>
@@ -256,11 +256,11 @@ export default function Landing() {
             <li>▸ {RULES.startBalance} SOL demo stack per phase</li>
             <li>▸ live pump.fun market data</li>
             <li>
-              ▸ pass all three →{" "}
-              <span className="gradient-text font-bold">${funded} funded account</span>
+              ▸ pass all three → trade{" "}
+              <span className="gradient-text font-bold">${funded} of the firm&apos;s money</span>
             </li>
             <li>
-              ▸ {RULES.profitSplit * 100}/{100 - RULES.profitSplit * 100} split on funded profits
+              ▸ keep {RULES.profitSplit * 100}% of what you make, paid to your Phantom
             </li>
           </ul>
           <Link href="/enter" className="btn btn-primary w-full !py-4 mt-8 text-center block">
@@ -303,7 +303,7 @@ export default function Landing() {
             },
             {
               q: "What happens after I pass all three?",
-              a: `You get a funded account worth ${RULES.fundedMultiple}x your entry fee, trading with the firm's capital on a ${RULES.profitSplit * 100}/${100 - RULES.profitSplit * 100} profit split paid in USDC. (Simulated in this preview build.)`,
+              a: `You trade a $${funded} account of the firm's own money — ${RULES.fundedMultiple}x your entry. You keep ${RULES.profitSplit * 100}% of the profits you make, paid in USDC straight to your Phantom. The $${funded} itself always stays with the firm; only your share of the gains is ever sent out. (Simulated in this preview build.)`,
             },
             {
               q: "What if a coin I hold drops below $100K?",

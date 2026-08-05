@@ -127,13 +127,14 @@ export default function GameOverlays() {
           </h2>
           <p className="mono text-xs text-[var(--ink-2)] mt-5 leading-relaxed">
             you cleared {RULES.phases.map((p) => p.gainLabel).join(", ")} without ever breaking the
-            floor. the desk is yours.
+            floor. you now trade {fmtUsd(reward)} of the firm&apos;s money — keep{" "}
+            {RULES.profitSplit * 100}% of everything you make, paid to your Phantom.
           </p>
           <div className="grid grid-cols-2 gap-2 mt-6">
-            <Stat label="funded account" value={fmtUsd(reward)} cls="text-[var(--violet)]" />
+            <Stat label="your desk" value={fmtUsd(reward)} cls="text-[var(--violet)]" />
             <Stat
-              label="profit split"
-              value={`${RULES.profitSplit * 100} / ${100 - RULES.profitSplit * 100}`}
+              label="you keep"
+              value={`${RULES.profitSplit * 100}%`}
               cls="text-[var(--cyan)]"
             />
           </div>
