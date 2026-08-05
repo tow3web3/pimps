@@ -2,7 +2,8 @@
 
 // Real on-chain entry payments: Phantom wallet + SPL transfer, confirmed
 // through our /api/rpc proxy (Helius when configured, public RPC otherwise).
-// The checkout falls back to fully-simulated mode when no treasury is set.
+// Every address comes from /api/config at runtime, so launch day needs no
+// rebuild: paste the mint in the admin console and this file follows.
 
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import {
@@ -14,8 +15,32 @@ import {
 export const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 const USDC_DECIMALS = 6;
 
-/** the firm's receiving wallet — set NEXT_PUBLIC_TREASURY_WALLET to go live */
-export const TREASURY = process.env.NEXT_PUBLIC_TREASURY_WALLET ?? "";
+export interface RuntimeConfig {
+  treasuryWallet: string;
+  gfMint: string;
+  gfDecimals: number;
+  paymentsLive: boolean;
+  gfLive: boolean;
+}
+
+let cachedConfig: RuntimeConfig | null = null;
+
+export async function loadConfig(force = false): Promise<RuntimeConfig> {
+  if (cachedConfig && !force) return cachedConfig;
+  try {
+    const res = await fetch("/api/config", { cache: "no-store" });
+    cachedConfig = (await res.json()) as RuntimeConfig;
+  } catch {
+    cachedConfig = {
+      treasuryWallet: "",
+      gfMint: "",
+      gfDecimals: 6,
+      paymentsLive: false,
+      gfLive: false,
+    };
+  }
+  return cachedConfig;
+}
 
 interface PhantomProvider {
   isPhantom?: boolean;
@@ -34,28 +59,23 @@ export function getProvider(): PhantomProvider | null {
   return w.phantom?.solana ?? w.solana ?? null;
 }
 
-/** live payments need a configured treasury AND an injected wallet */
-export function realPaymentsAvailable(): boolean {
-  if (TREASURY.length < 32) return false;
-  try {
-    new PublicKey(TREASURY);
-  } catch {
-    return false;
-  }
-  return getProvider() !== null;
-}
-
 /**
- * Transfer `amountUsd` of USDC to the treasury and wait for on-chain
- * confirmation. Resolves with the transaction signature.
+ * Transfer an SPL token to the treasury and wait for on-chain confirmation.
+ * Used for both lanes: USDC at face value, $GF at the discounted price.
  */
-export async function payUsdc(
-  amountUsd: number,
+async function transferToTreasury(
+  opts: {
+    mint: PublicKey;
+    decimals: number;
+    amount: number; // in whole tokens
+    label: string;
+    treasury: string;
+  },
   onStep: (line: string) => void,
 ): Promise<string> {
   const provider = getProvider();
   if (!provider) throw new Error("no Solana wallet found — install Phantom");
-  const treasury = new PublicKey(TREASURY);
+  const treasury = new PublicKey(opts.treasury);
 
   onStep("connecting wallet…");
   const { publicKey } = await provider.connect();
@@ -63,15 +83,14 @@ export async function payUsdc(
   onStep(`wallet ${pk.slice(0, 4)}…${pk.slice(-4)} connected`);
 
   const conn = new Connection(`${window.location.origin}/api/rpc`, "confirmed");
-  const from = getAssociatedTokenAddressSync(USDC_MINT, publicKey);
-  const to = getAssociatedTokenAddressSync(USDC_MINT, treasury);
-  const amount = Math.round(amountUsd * 10 ** USDC_DECIMALS);
+  const from = getAssociatedTokenAddressSync(opts.mint, publicKey);
+  const to = getAssociatedTokenAddressSync(opts.mint, treasury);
+  const raw = BigInt(Math.round(opts.amount * 10 ** opts.decimals));
 
-  onStep(`building usdc transfer · $${amountUsd.toFixed(2)}…`);
+  onStep(`building transfer · ${opts.label}…`);
   const tx = new Transaction().add(
-    // idempotent: creates the treasury's USDC account only if it is missing
-    createAssociatedTokenAccountIdempotentInstruction(publicKey, to, treasury, USDC_MINT),
-    createTransferCheckedInstruction(from, USDC_MINT, to, publicKey, amount, USDC_DECIMALS),
+    createAssociatedTokenAccountIdempotentInstruction(publicKey, to, treasury, opts.mint),
+    createTransferCheckedInstruction(from, opts.mint, to, publicKey, raw, opts.decimals),
   );
   tx.feePayer = publicKey;
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
@@ -87,4 +106,52 @@ export async function payUsdc(
   );
   if (res.value.err) throw new Error("transaction failed on-chain");
   return signature;
+}
+
+export async function payUsdc(amountUsd: number, onStep: (l: string) => void): Promise<string> {
+  const cfg = await loadConfig(true);
+  if (!cfg.treasuryWallet) throw new Error("treasury not configured");
+  return transferToTreasury(
+    {
+      mint: USDC_MINT,
+      decimals: USDC_DECIMALS,
+      amount: amountUsd,
+      label: `$${amountUsd.toFixed(2)} usdc`,
+      treasury: cfg.treasuryWallet,
+    },
+    onStep,
+  );
+}
+
+/** pay the discounted entry in $GF, sized from the live market price */
+export async function payGf(amountUsd: number, onStep: (l: string) => void): Promise<string> {
+  const cfg = await loadConfig(true);
+  if (!cfg.treasuryWallet) throw new Error("treasury not configured");
+  if (!cfg.gfMint) throw new Error("the token is not live yet");
+
+  onStep("pricing $GF from the live market…");
+  const q = await fetch(`/api/gf-quote?usd=${amountUsd}`, { cache: "no-store" }).then((r) =>
+    r.json(),
+  );
+  if (!q?.tokens || q.tokens <= 0) throw new Error(q?.error ?? "no $GF market yet");
+  onStep(`quote: ${Math.round(q.tokens).toLocaleString()} $GF ≈ $${amountUsd.toFixed(2)}`);
+
+  return transferToTreasury(
+    {
+      mint: new PublicKey(cfg.gfMint),
+      decimals: cfg.gfDecimals,
+      // a small buffer so a tick between quote and settlement cannot
+      // under-pay and get the entry rejected server-side
+      amount: q.tokens * 1.01,
+      label: `${Math.round(q.tokens).toLocaleString()} $GF`,
+      treasury: cfg.treasuryWallet,
+    },
+    onStep,
+  );
+}
+
+/** live payments need a configured treasury AND an injected wallet */
+export async function realPaymentsAvailable(): Promise<boolean> {
+  const cfg = await loadConfig();
+  return cfg.paymentsLive && getProvider() !== null;
 }

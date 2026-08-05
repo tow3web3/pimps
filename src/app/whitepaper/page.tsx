@@ -1,6 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { BRAND, entryFeeGfUsd, fundedAccountUsd, RULES } from "@/lib/rules";
+import { getConfig } from "@/server/config";
+
+// the mint must appear here the moment it is set in the launch console
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: `${BRAND} — whitepaper`,
@@ -52,6 +56,7 @@ function Callout({ title, children }: { title: string; children: React.ReactNode
 
 export default function Whitepaper() {
   const dd = ((1 - RULES.failFloor / RULES.startBalance) * 100).toFixed(0);
+  const { gfMint } = getConfig();
 
   return (
     <div className="min-h-dvh">
@@ -377,7 +382,7 @@ export default function Whitepaper() {
               k={`entry in ${RULES.token.symbol}`}
               v={`$${entryFeeGfUsd().toFixed(2)} equivalent, at market rate`}
             />
-            <Row k="mint" v={RULES.token.mint || "not yet deployed — TBD"} />
+            <Row k="mint" v={gfMint || "not yet deployed"} />
           </div>
           <p className="mt-4">
             No governance theater, no gated formats, no claim on prize pools. Holding{" "}

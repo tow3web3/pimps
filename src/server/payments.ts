@@ -2,6 +2,7 @@
 // the amount, destination and signer are read from the chain itself.
 
 import { db } from "./db";
+import { getConfig, gfPriceUsd } from "./config";
 import { entryFeeGfUsd, RULES } from "@/lib/rules";
 
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -13,7 +14,7 @@ function rpcUrl(): string {
 }
 
 export function treasuryWallet(): string {
-  return process.env.NEXT_PUBLIC_TREASURY_WALLET ?? "";
+  return getConfig().treasuryWallet;
 }
 
 export function expectedUsd(method: "usdc" | "gf" | "free"): number {
@@ -36,7 +37,7 @@ export async function verifyEntryPayment(
   method: "usdc" | "gf" | "free",
   txSig?: string,
 ): Promise<"verified" | "simulated"> {
-  const amount = expectedUsd(method);
+  const amountUsd = expectedUsd(method);
 
   if (method === "free") {
     db.prepare(
@@ -45,14 +46,16 @@ export async function verifyEntryPayment(
     return "verified";
   }
 
-  const treasury = treasuryWallet();
+  const cfg = getConfig();
+  const treasury = cfg.treasuryWallet;
   if (!treasury) {
     db.prepare(
       "INSERT INTO payments(tx_sig, wallet, method, amount_usd, verified, ts) VALUES(?,?,?,?,0,?)",
-    ).run(`sim-${wallet}-${Date.now()}`, wallet, "simulated", amount, Date.now());
+    ).run(`sim-${wallet}-${Date.now()}`, wallet, "simulated", amountUsd, Date.now());
     return "simulated";
   }
 
+  if (method === "gf" && !cfg.gfMint) throw new Error("the token is not live yet");
   if (!txSig) throw new Error("transaction signature required");
   const used = db.prepare("SELECT 1 FROM payments WHERE tx_sig=?").get(txSig);
   if (used) throw new Error("this transaction was already used for a seat");
@@ -65,7 +68,10 @@ export async function verifyEntryPayment(
       jsonrpc: "2.0",
       id: 1,
       method: "getTransaction",
-      params: [txSig, { encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 0 }],
+      params: [
+        txSig,
+        { encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 0 },
+      ],
     }),
   });
   if (!res.ok) throw new Error("rpc unavailable — retry in a few seconds");
@@ -85,17 +91,33 @@ export async function verifyEntryPayment(
     throw new Error("transaction was not signed by your wallet");
   }
 
+  const mint = method === "gf" ? cfg.gfMint : USDC;
   const balanceOf = (list: TokenBalance[] | undefined) =>
     (list ?? [])
-      .filter((b) => b.mint === USDC && b.owner === treasury)
+      .filter((b) => b.mint === mint && b.owner === treasury)
       .reduce((a, b) => a + (b.uiTokenAmount.uiAmount ?? 0), 0);
   const delta = balanceOf(tx.meta?.postTokenBalances) - balanceOf(tx.meta?.preTokenBalances);
-  if (delta < amount * 0.99) {
-    throw new Error(`treasury received $${delta.toFixed(2)} — expected $${amount.toFixed(2)}`);
+
+  if (method === "usdc") {
+    if (delta < amountUsd * 0.99) {
+      throw new Error(`treasury received $${delta.toFixed(2)} — expected $${amountUsd.toFixed(2)}`);
+    }
+  } else {
+    // $GF: value the tokens actually received at the live price. A 10% band
+    // absorbs the price moving between quote and settlement — normal on a
+    // launch-day chart, and never in the trader's favour beyond that.
+    const price = await gfPriceUsd(mint);
+    if (price === null || price <= 0) throw new Error("no $GF market to price the payment");
+    const receivedUsd = delta * price;
+    if (receivedUsd < amountUsd * 0.9) {
+      throw new Error(
+        `treasury received ${delta.toLocaleString()} $${RULES.token.symbol} ≈ $${receivedUsd.toFixed(2)} — expected $${amountUsd.toFixed(2)}`,
+      );
+    }
   }
 
   db.prepare(
     "INSERT INTO payments(tx_sig, wallet, method, amount_usd, verified, ts) VALUES(?,?,?,?,1,?)",
-  ).run(txSig, wallet, method, amount, Date.now());
+  ).run(txSig, wallet, method, amountUsd, Date.now());
   return "verified";
 }

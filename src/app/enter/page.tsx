@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { BRAND, entryFeeGfUsd, RULES } from "@/lib/rules";
 import { useGame } from "@/lib/store";
 import { fmtUsd } from "@/lib/format";
-import { getProvider, payUsdc, realPaymentsAvailable } from "@/lib/payments";
+import { getProvider, loadConfig, payGf, payUsdc, type RuntimeConfig } from "@/lib/payments";
 import { connectWallet, serverEnter, useAuth } from "@/lib/authClient";
 
 type Method = "usdc" | "gf" | "free";
@@ -38,14 +38,29 @@ export default function EnterPage() {
   const [processing, setProcessing] = useState(false);
   const [lines, setLines] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
-  const [live, setLive] = useState(false);
+  const [cfg, setCfg] = useState<RuntimeConfig | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     setMounted(true);
-    setLive(realPaymentsAvailable());
+    // poll the runtime config: the $GF lane must open by itself the moment the
+    // mint is set in the admin console, with no reload from the visitor
+    let stop = false;
+    const tick = async () => {
+      const c = await loadConfig(true);
+      if (!stop) setCfg(c);
+    };
+    tick();
+    const iv = setInterval(tick, 20_000);
+    return () => {
+      stop = true;
+      clearInterval(iv);
+    };
   }, []);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  const live = !!cfg?.paymentsLive && getProvider() !== null;
+  const gfLive = !!cfg?.gfLive;
 
   const runSimulated = (m: Method) => {
     const steps =
@@ -93,10 +108,11 @@ export default function EnterPage() {
         }
       }
       let txSig: string | undefined;
-      if (method !== "free" && live) {
-        txSig = await payUsdc(method === "gf" ? gfPrice : usdcPrice, (line) =>
-          setLines((l) => [...l, line]),
-        );
+      const step = (line: string) => setLines((l) => [...l, line]);
+      if (method === "gf" && live) {
+        txSig = await payGf(gfPrice, step);
+      } else if (method === "usdc" && live) {
+        txSig = await payUsdc(usdcPrice, step);
       } else if (method !== "free") {
         setLines((l) => [...l, "⚠ preview — treasury not configured, seat granted without transfer"]);
       }
@@ -135,7 +151,7 @@ export default function EnterPage() {
   };
 
   // in live mode the GF lane waits for the token to exist on-chain
-  const gfUnavailable = live && method === "gf" && !RULES.token.mint;
+  const gfUnavailable = live && method === "gf" && !gfLive;
 
   const usdcPrice = RULES.entryFeeUsd;
   const gfPrice = entryFeeGfUsd();
