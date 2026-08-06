@@ -122,7 +122,13 @@ export default function TerminalPage() {
             <TokenList onPick={() => setTab("chart")} />
           </div>
         )}
-        {tab === "chart" && <div className="flex-1 min-h-0 flex flex-col">{chartPanel}</div>}
+        {tab === "chart" && (
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+            {/* the chart can never be squeezed to zero: it keeps a real
+                height and the tab scrolls instead */}
+            <div className="flex-1 min-h-[440px] flex flex-col">{chartPanel}</div>
+          </div>
+        )}
         {tab === "info" && (
           <div className="flex-1 min-h-0 flex flex-col">
             {token ? (

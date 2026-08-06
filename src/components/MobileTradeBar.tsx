@@ -10,7 +10,6 @@ import { fmtQty, fmtSol, fmtSignedSol, fmtUsd } from "@/lib/format";
 // you watch the chart, sizes are one tap, and the sheet only expands when you
 // need the details.
 
-const QUICK_SOL = [0.25, 0.5, 1, 2];
 
 export default function MobileTradeBar() {
   const { tokens, selected, solUsd } = useMarket();
@@ -205,47 +204,67 @@ export default function MobileTradeBar() {
 
           {/* the always-visible action row */}
           {side === "buy" || !position ? (
-            <div className="flex items-stretch gap-1.5 p-2">
-              {!open ? (
-                <>
-                  {QUICK_SOL.map((s) => (
+            !open ? (
+              <div className="p-2 space-y-1.5">
+                {/* size in % of your cap — you can bet at most 33% of your bag */}
+                <div className="flex items-center gap-1.5">
+                  {[0.25, 0.5, 0.75, 1].map((f) => (
                     <button
-                      key={s}
-                      onClick={() => doBuy(Math.min(s, maxSol))}
-                      disabled={busy || !canTrade || belowFloor || maxSol < s * 0.999}
-                      className="btn btn-buy flex-1 !px-0 !py-3 !text-[12px]"
+                      key={f}
+                      onClick={() => setAmount((maxSol * f).toFixed(2))}
+                      className="chip flex-1 !py-1 !text-[10px]"
                     >
-                      {s}
+                      {f === 1 ? "max" : `${f * 100}%`}
                     </button>
                   ))}
+                  <span className="mono text-[8px] leading-tight text-[var(--ink-3)] shrink-0 w-[74px]">
+                    max {RULES.maxExposure * 100}% of your bag per token
+                  </span>
+                </div>
+                <div className="flex items-stretch gap-1.5">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0.00 SOL"
+                    className="field flex-1 !py-2.5 !text-[15px]"
+                  />
+                  <button
+                    onClick={() => doBuy(amt)}
+                    disabled={busy || amt <= 0 || amt > maxSol + 1e-9 || !canTrade || belowFloor}
+                    className="btn btn-buy !px-6 !py-2.5"
+                  >
+                    {busy ? "…" : "buy"}
+                  </button>
                   <button
                     onClick={() => {
                       setSide("buy");
                       setOpen(true);
                     }}
-                    className="btn btn-cyan !px-3.5 !py-3 shrink-0 flex flex-col items-center gap-0"
+                    className="btn btn-cyan !px-3 !py-2.5 shrink-0 flex flex-col items-center justify-center gap-0"
                     aria-label="more options"
-                    title="more — custom amount, sell, details"
+                    title="more — details, sell"
                   >
-                    <span className="text-[13px] leading-none animate-bounce">▲</span>
+                    <span className="text-[12px] leading-none animate-bounce">▲</span>
                     <span className="text-[8px] tracking-[0.1em] mt-0.5">more</span>
                   </button>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => setOpen(false)} className="btn !px-4 !py-3.5 shrink-0">
-                    ✕
-                  </button>
-                  <button
-                    onClick={() => doBuy(amt)}
-                    disabled={busy || amt <= 0 || amt > maxSol + 1e-9 || !canTrade || belowFloor}
-                    className="btn btn-buy flex-1 !py-3.5"
-                  >
-                    {busy ? "filling…" : `buy ${token.symbol}`}
-                  </button>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-stretch gap-1.5 p-2">
+                <button onClick={() => setOpen(false)} className="btn !px-4 !py-3.5 shrink-0">
+                  ✕
+                </button>
+                <button
+                  onClick={() => doBuy(amt)}
+                  disabled={busy || amt <= 0 || amt > maxSol + 1e-9 || !canTrade || belowFloor}
+                  className="btn btn-buy flex-1 !py-3.5"
+                >
+                  {busy ? "filling…" : `buy ${token.symbol}`}
+                </button>
+              </div>
+            )
           ) : (
             <div className="flex items-stretch gap-1.5 p-2">
               {!open ? (

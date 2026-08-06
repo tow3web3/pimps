@@ -53,9 +53,6 @@ export default function Landing() {
             board
           </Link>
           <SocialLinks />
-          <Link href="/enter" className="btn-ink !py-2.5 !px-5 !text-[14px]">
-            Launch terminal <span className="btn-arrow">→</span>
-          </Link>
         </nav>
       </header>
 

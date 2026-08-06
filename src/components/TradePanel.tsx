@@ -130,6 +130,10 @@ export default function TradePanel() {
                   max
                 </button>
               </div>
+              <p className="mono text-[9px] text-[var(--ink-3)] mt-1.5">
+                ▸ type any amount, or take a % of your max — you can bet at most{" "}
+                {RULES.maxExposure * 100}% of your bag on one token
+              </p>
             </div>
 
             <div className="space-y-1.5 mono text-[11px] text-[var(--ink-2)]">
