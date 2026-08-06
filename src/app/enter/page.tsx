@@ -178,8 +178,8 @@ export default function EnterPage() {
             {reentry ? "Back for another run." : "Take your seat."}
           </h1>
           <p className="text-center text-[var(--ink-2)] text-sm mt-3 max-w-md mx-auto">
-            One fee, the full 3-challenge gauntlet. Pay with {RULES.token.symbol} and the firm
-            takes {RULES.token.discount * 100}% off.
+            Play the full gauntlet for free, or enter for real to get funded — pay in{" "}
+            {RULES.token.symbol} and the firm takes {RULES.token.discount * 100}% off.
           </p>
           {mounted && (
             <p className="text-center mt-3">

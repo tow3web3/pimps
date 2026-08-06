@@ -28,7 +28,7 @@ export default function Landing() {
             <Link href="/leaderboard" className="chip hover:text-[var(--ink)] transition-colors hidden md:block">
               board
             </Link>
-            <Link href="/terminal" className="btn btn-cyan !py-2 !px-4">
+            <Link href="/enter" className="btn btn-cyan !py-2 !px-4">
               launch terminal
             </Link>
           </nav>
@@ -38,7 +38,7 @@ export default function Landing() {
           className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4 -mt-8"
           style={{ textShadow: "0 1px 24px rgba(3,4,9,0.85), 0 0 60px rgba(3,4,9,0.5)" }}
         >
-          <span className="chip rise rise-1 !text-[var(--up)] !border-[rgba(52,211,153,0.45)] !text-[11px] !px-4 !py-1.5">
+          <span className="chip rise rise-1 !text-[var(--up)] !border-[rgba(52,211,153,0.45)] !text-[11px] !px-4 !py-1.5 hidden sm:inline-block">
             ● free to play — no wallet, no payment, no signup
           </span>
           <h1 className="rise rise-2 font-bold leading-[0.95] mt-6 text-[clamp(44px,9vw,110px)] tracking-tight">
@@ -55,15 +55,15 @@ export default function Landing() {
             {RULES.profitSplit * 100}% of what you make, paid to your Phantom.
           </p>
           <div className="rise rise-4 flex flex-col sm:flex-row items-center gap-3 mt-8">
-            <Link href="/terminal" className="btn btn-primary !text-sm !px-10 !py-4">
-              play free now ▸
+            <Link href="/enter" className="btn btn-primary !text-sm !px-10 !py-4">
+              launch terminal ▸
             </Link>
-            <Link href="/enter" className="btn !px-8 !py-4">
-              enter for real
-            </Link>
+            <a href="#gauntlet" className="btn !px-8 !py-4">
+              how it works
+            </a>
           </div>
           <p className="rise rise-4 mono text-[11px] text-[var(--ink-3)] mt-3">
-            try the whole gauntlet in your browser · pay only when you want the funded account
+            play free, or get funded for real — choose on the next screen
           </p>
 
           <div className="rise rise-4 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 mt-12 mono text-[11px] text-[var(--ink-3)]">
