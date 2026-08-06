@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy:local": "next build && launchctl kickstart -k gui/$(id -u)/com.getfunded.server",
+    "smoke:auth": "node scripts/smoke-auth.mjs http://localhost:3333"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
