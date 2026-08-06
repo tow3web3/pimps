@@ -55,6 +55,7 @@ export default function TerminalPage() {
           <ChartHeader token={token} />
           <CandleChart
             pairAddress={token.pairAddress}
+            mint={token.mint}
             livePriceUsd={token.priceUsd}
             avgEntryUsd={avgEntryUsd}
           />

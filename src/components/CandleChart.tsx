@@ -9,10 +9,14 @@ import { fmtUsd } from "@/lib/format";
 
 export default function CandleChart({
   pairAddress,
+  mint,
   livePriceUsd,
   avgEntryUsd,
 }: {
   pairAddress: string;
+  /** embed by MINT when available: DexScreener resolves it to their own top
+      pair, so a migrated/stale pool can never leave the chart blank */
+  mint?: string;
   livePriceUsd?: number;
   /** the qty-weighted USD fill price, pinned at buy time */
   avgEntryUsd?: number;
@@ -40,8 +44,8 @@ export default function CandleChart({
       )}
       <div className="relative flex-1 min-h-0">
         <iframe
-          key={pairAddress}
-          src={`https://dexscreener.com/solana/${pairAddress}?embed=1&theme=light&chartTheme=light&trades=0&info=0`}
+          key={mint ?? pairAddress}
+          src={`https://dexscreener.com/solana/${mint ?? pairAddress}?embed=1&theme=light&chartTheme=light&trades=0&info=0`}
           className="absolute inset-0 w-full h-full border-0"
           allow="clipboard-write"
           allowFullScreen

@@ -119,7 +119,7 @@ interface DsPair {
   quoteToken: { address: string };
   priceNative: string;
   priceUsd: string;
-  volume?: { h24?: number };
+  volume?: { h24?: number; m5?: number };
   priceChange?: { m5?: number; h1?: number; h24?: number };
   liquidity?: { usd?: number };
   fdv?: number;
@@ -224,6 +224,7 @@ async function enrichAndMerge(coins: PfCoin[], maxChunks = 999): Promise<number>
           mcapUsd: mcap,
           liqUsd: liq,
           vol24Usd: p.volume?.h24 ?? 0,
+          vol5mUsd: p.volume?.m5 ?? 0,
           chg5m: p.priceChange?.m5 ?? 0,
           chg1h: p.priceChange?.h1 ?? 0,
           chg24h: p.priceChange?.h24 ?? 0,
@@ -251,7 +252,7 @@ interface GtPool {
     fdv_usd: string | null;
     market_cap_usd: string | null;
     reserve_in_usd: string | null;
-    volume_usd: { h24: string | null };
+    volume_usd: { h24: string | null; m5: string | null };
     price_change_percentage: { m5: string | null; h1: string | null; h24: string | null };
   };
   relationships: {
@@ -323,6 +324,7 @@ async function sweepGecko(): Promise<void> {
           mcapUsd: mcap,
           liqUsd: reserve,
           vol24Usd: Number(a.volume_usd?.h24 ?? 0),
+          vol5mUsd: Number(a.volume_usd?.m5 ?? 0),
           chg5m: Number(a.price_change_percentage?.m5 ?? 0),
           chg1h: Number(a.price_change_percentage?.h1 ?? 0),
           chg24h: Number(a.price_change_percentage?.h24 ?? 0),

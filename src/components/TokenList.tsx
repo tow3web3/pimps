@@ -33,9 +33,11 @@ function TokenIcon({ url, symbol, size = 26 }: { url?: string; symbol: string; s
 
 export { TokenIcon };
 
-type SortKey = "vol" | "mcap" | "chg24h" | "new";
+type SortKey = "hot" | "vol" | "mcap" | "chg24h" | "new";
 
 const SORTS: Record<SortKey, (a: import("@/lib/types").TokenInfo, b: import("@/lib/types").TokenInfo) => number> = {
+  // what's trading RIGHT NOW — 5-minute volume, the DexScreener trending feel
+  hot: (a, b) => (b.vol5mUsd ?? 0) - (a.vol5mUsd ?? 0),
   vol: (a, b) => b.vol24Usd - a.vol24Usd,
   mcap: (a, b) => b.mcapUsd - a.mcapUsd,
   chg24h: (a, b) => b.chg24h - a.chg24h,
@@ -52,7 +54,7 @@ export default function TokenList() {
   const { tokens, universe, selected, select, universeLoaded } = useMarket();
   const positions = useGame((s) => s.positions);
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<SortKey>("vol");
+  const [sort, setSort] = useState<SortKey>("hot");
   const [minMcap, setMinMcap] = useState(0);
   const [minVol, setMinVol] = useState(0);
 
@@ -104,7 +106,8 @@ export default function TokenList() {
             className="field !py-1.5 !px-2 !text-[10px] !rounded-lg cursor-pointer"
             title="sort"
           >
-            <option value="vol">↓ volume</option>
+            <option value="hot">🔥 hot · 5m vol</option>
+            <option value="vol">↓ vol 24h</option>
             <option value="mcap">↓ mcap</option>
             <option value="chg24h">↓ 24h %</option>
             <option value="new">↓ newest</option>
@@ -173,6 +176,11 @@ export default function TokenList() {
                     </span>
                   ) : (
                     <>
+                      {sort === "hot" && (t.vol5mUsd ?? 0) > 0 && (
+                        <span className="text-[var(--heat-deep)]">
+                          5m {fmtCompact(t.vol5mUsd ?? 0)} ·{" "}
+                        </span>
+                      )}
                       mc {fmtCompact(t.mcapUsd)}
                       {t.ageHours ? ` · ${fmtAge(t.ageHours)}` : ""}
                     </>

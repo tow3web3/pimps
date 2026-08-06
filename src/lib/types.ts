@@ -13,6 +13,8 @@ export interface TokenInfo {
   mcapUsd: number;
   liqUsd: number;
   vol24Usd: number;
+  /** USD volume of the last 5 minutes — the "hot right now" signal */
+  vol5mUsd?: number;
   chg5m: number;
   chg1h: number;
   chg24h: number;

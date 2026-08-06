@@ -18,7 +18,7 @@ interface DsPair {
   baseToken: { address: string; name: string; symbol: string };
   priceNative: string;
   priceUsd: string;
-  volume?: { h24?: number };
+  volume?: { h24?: number; m5?: number };
   priceChange?: { m5?: number; h1?: number; h24?: number };
   liquidity?: { usd?: number };
   fdv?: number;
@@ -102,6 +102,7 @@ async function refresh(): Promise<void> {
       mcapUsd: p.marketCap ?? p.fdv ?? 0,
       liqUsd: liq,
       vol24Usd: p.volume?.h24 ?? 0,
+      vol5mUsd: p.volume?.m5 ?? 0,
       chg5m: p.priceChange?.m5 ?? 0,
       chg1h: p.priceChange?.h1 ?? 0,
       chg24h: p.priceChange?.h24 ?? 0,
