@@ -6,7 +6,17 @@ import { useRouter } from "next/navigation";
 import { BRAND, entryFeeGfUsd, RULES } from "@/lib/rules";
 import { useGame } from "@/lib/store";
 import { fmtUsd } from "@/lib/format";
-import { getProvider, loadConfig, payGf, payUsdc, type RuntimeConfig } from "@/lib/payments";
+import {
+  getPreferredWallet,
+  getProvider,
+  listWallets,
+  loadConfig,
+  payGf,
+  payUsdc,
+  setPreferredWallet,
+  type DetectedWallet,
+  type RuntimeConfig,
+} from "@/lib/payments";
 import { connectWallet, serverEnter, useAuth } from "@/lib/authClient";
 
 type Method = "usdc" | "gf" | "free";
@@ -43,10 +53,21 @@ export default function EnterPage() {
   const [lines, setLines] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
   const [cfg, setCfg] = useState<RuntimeConfig | null>(null);
+  const [wallets, setWallets] = useState<DetectedWallet[]>([]);
+  const [walletId, setWalletId] = useState<string | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     setMounted(true);
+    // wallets inject asynchronously — a second scan catches the slow ones
+    const scan = () => {
+      const found = listWallets();
+      setWallets(found);
+      setWalletId((cur) => cur ?? getPreferredWallet() ?? found[0]?.id ?? null);
+    };
+    scan();
+    const t = setTimeout(scan, 1200);
+    timers.current.push(t);
     // poll the runtime config: the $GF lane must open by itself the moment the
     // mint is set in the admin console, with no reload from the visitor
     let stop = false;
@@ -158,6 +179,7 @@ export default function EnterPage() {
 
   const pay = () => {
     if (processing) return;
+    if (walletId) setPreferredWallet(walletId);
     setProcessing(true);
     setError(null);
     setLines([]);
@@ -325,7 +347,38 @@ export default function EnterPage() {
                 <li>▸ a fixed cash prize · a losing run costs this fee, nothing more</li>
               </ul>
 
-              <div className="max-w-md mx-auto mt-9">
+              {/* which wallet signs — only shown when there is a real choice */}
+              {wallets.length > 1 && (
+                <div className="max-w-md mx-auto mt-7 flex items-center justify-center gap-2 flex-wrap">
+                  <span className="mono text-[10px] tracking-[0.2em] uppercase text-[var(--ink-3)]">
+                    sign with
+                  </span>
+                  {wallets.map((w) => (
+                    <button
+                      key={w.id}
+                      onClick={() => {
+                        setWalletId(w.id);
+                        setPreferredWallet(w.id);
+                      }}
+                      className={`chip !text-[11px] !px-3 !py-1.5 transition-colors ${
+                        walletId === w.id
+                          ? "!text-[var(--heat-deep)] !border-[var(--heat-deep)]"
+                          : "hover:!border-[var(--ink)]"
+                      }`}
+                    >
+                      {walletId === w.id ? "● " : ""}
+                      {w.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {mounted && wallets.length === 0 && (
+                <p className="mono text-[10px] text-[var(--ink-3)] mt-6 text-center">
+                  no Solana wallet detected — install Phantom, Solflare or Backpack, then reload
+                </p>
+              )}
+
+              <div className="max-w-md mx-auto mt-6">
                 <button onClick={pay} disabled={gfUnavailable} className="btn-heat w-full !py-4">
                   {method === "free"
                     ? "Connect wallet & play free"

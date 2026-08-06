@@ -7,7 +7,7 @@
 import { useEffect, useRef } from "react";
 import { create } from "zustand";
 import bs58 from "bs58";
-import { getProvider, withWalletTimeout } from "./payments";
+import { getProvider, setPreferredWallet, withWalletTimeout } from "./payments";
 import { useGame } from "./store";
 
 interface AuthState {
@@ -24,9 +24,10 @@ export async function refreshServerState(): Promise<boolean> {
   return true;
 }
 
-export async function connectWallet(): Promise<string> {
+export async function connectWallet(walletId?: string): Promise<string> {
+  if (walletId) setPreferredWallet(walletId);
   const provider = getProvider();
-  if (!provider) throw new Error("no Solana wallet found — install Phantom");
+  if (!provider) throw new Error("no Solana wallet found — install Phantom, Solflare or Backpack");
   useAuth.setState({ connecting: true });
   try {
     // 60s to approve the connect popup; if the extension's bridge is dead it

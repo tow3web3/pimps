@@ -50,22 +50,66 @@ interface PhantomProvider {
   signMessage?: (msg: Uint8Array, encoding: "utf8") => Promise<{ signature: Uint8Array }>;
 }
 
-export function getProvider(): PhantomProvider | null {
-  if (typeof window === "undefined") return null;
-  const w = window as unknown as {
-    phantom?: { solana?: PhantomProvider };
-    solana?: PhantomProvider & { isPhantom?: boolean };
-    solflare?: PhantomProvider;
-  };
-  // Phantom's own namespace is never overwritten by other wallets, so prefer it.
-  // Fall back to window.solana only if it can actually sign a message — a
-  // multi-chain aggregator that hijacked window.solana without a working bridge
-  // (the "IN_PAGE_CHANNEL" errors) is worse than nothing.
-  const candidates = [w.phantom?.solana, w.solflare, w.solana];
-  for (const p of candidates) {
-    if (p && typeof p.connect === "function" && typeof p.signMessage === "function") return p;
+export interface DetectedWallet {
+  id: string;
+  name: string;
+  provider: PhantomProvider;
+}
+
+/** every injected Solana wallet we know how to talk to, deduped. A candidate
+    only counts if it can BOTH connect and sign a message — an aggregator that
+    hijacked window.solana without a working bridge is worse than nothing. */
+export function listWallets(): DetectedWallet[] {
+  if (typeof window === "undefined") return [];
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const w = window as any;
+  const candidates: Array<[string, string, PhantomProvider | undefined]> = [
+    ["phantom", "Phantom", w.phantom?.solana],
+    ["solflare", "Solflare", w.solflare],
+    ["backpack", "Backpack", w.backpack?.solana ?? w.backpack],
+    ["glow", "Glow", w.glowSolana ?? w.glow?.solana],
+    ["brave", "Brave Wallet", w.braveSolana],
+    ["coinbase", "Coinbase Wallet", w.coinbaseSolana],
+    ["exodus", "Exodus", w.exodus?.solana],
+    ["trust", "Trust Wallet", w.trustwallet?.solana],
+    ["coin98", "Coin98", w.coin98?.sol],
+    ["injected", "Solana Wallet", w.solana],
+  ];
+  const seen = new Set<unknown>();
+  const out: DetectedWallet[] = [];
+  for (const [id, name, p] of candidates) {
+    if (!p || typeof p.connect !== "function" || typeof p.signMessage !== "function") continue;
+    if (seen.has(p)) continue;
+    seen.add(p);
+    // the anonymous window.solana slot only counts when no branded wallet
+    // already claimed the page — otherwise it's a duplicate or an impostor
+    if (id === "injected" && out.length > 0) continue;
+    out.push({ id, name, provider: p });
   }
-  return null;
+  return out;
+}
+
+const PREF_KEY = "gf_wallet";
+export function setPreferredWallet(id: string): void {
+  try {
+    localStorage.setItem(PREF_KEY, id);
+  } catch {
+    /* private mode */
+  }
+}
+export function getPreferredWallet(): string | null {
+  try {
+    return localStorage.getItem(PREF_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function getProvider(): PhantomProvider | null {
+  const list = listWallets();
+  if (list.length === 0) return null;
+  const pref = getPreferredWallet();
+  return (list.find((x) => x.id === pref) ?? list[0]).provider;
 }
 
 /** race any wallet call against a timeout so a broken extension can't hang us */
@@ -94,7 +138,7 @@ async function transferToTreasury(
   onStep: (line: string) => void,
 ): Promise<string> {
   const provider = getProvider();
-  if (!provider) throw new Error("no Solana wallet found — install Phantom");
+  if (!provider) throw new Error("no Solana wallet found — install Phantom, Solflare or Backpack");
   const treasury = new PublicKey(opts.treasury);
 
   onStep("connecting wallet…");

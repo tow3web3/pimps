@@ -23,12 +23,17 @@ const jbmono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: `${BRAND} — memecoin prop firm`,
-  description: `${TAGLINE} — pass 3 challenges on live pump.fun prices with a simulated 10 SOL stack and win a $300 cash prize.`,
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3333"),
+  ),
+  title: `${BRAND} — trade memecoins. get funded.`,
+  description: `${TAGLINE} — the memecoin prop firm. Pass 3 challenges on live pump.fun prices with a 10 SOL demo stack and the firm sends $300 straight to your wallet. Free roll pays $50. Entries paid in $GETFUNDED are burned.`,
   openGraph: {
     title: `${BRAND} — trade memecoins. get funded.`,
-    description: `Clear 3 challenges on a 10 SOL demo stack against live pump.fun markets and win a $300 cash prize.`,
+    description: `Clear 3 challenges on a 10 SOL demo stack against live pump.fun markets — the firm sends $300 straight to your wallet. Free roll pays $50.`,
     type: "website",
+    siteName: BRAND,
   },
   twitter: { card: "summary_large_image" },
 };
