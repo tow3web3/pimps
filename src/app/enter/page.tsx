@@ -147,23 +147,10 @@ export default function EnterPage() {
     if (processing) return;
     setProcessing(true);
     setLines([]);
-    const signedIn = useAuth.getState().wallet !== null;
-    const needsRealPayment = live && method !== "free";
-
-    if (needsRealPayment) {
-      // real money must move — a wallet is required here
-      void runServer(true);
-    } else if (method === "free") {
-      // FREE never prompts a wallet: if you're already signed in it lands on
-      // the server (counts on the board); otherwise it plays instantly in
-      // preview. No connect popup, so a broken wallet extension can't block it.
-      if (signedIn) void runServer(false);
-      else runSimulated("free");
-    } else if (signedIn) {
-      void runServer(false);
-    } else {
-      runSimulated(method);
-    }
+    // Every real entry — free roll included — goes through the server with a
+    // connected wallet, so the account exists, the run is active and the
+    // terminal has something to trade. A wallet is required in all lanes.
+    void runServer(true);
   };
 
   // in live mode the GF lane waits for the token to exist on-chain
@@ -231,7 +218,7 @@ export default function EnterPage() {
                   </div>
                   <div className="mono text-4xl font-bold mt-3 text-up">$0</div>
                   <p className="mono text-[11px] text-[var(--ink-2)] mt-3 leading-relaxed">
-                    same three challenges, same rules · pass and trade a $
+                    connect your wallet, no payment · same three challenges · pass and trade a $
                     {RULES.freeRewardUsd} account instead of $
                     {RULES.entryFeeUsd * RULES.fundedMultiple}
                   </p>
@@ -300,7 +287,7 @@ export default function EnterPage() {
                 className="btn btn-primary w-full max-w-md mx-auto block !py-4 mt-8"
               >
                 {method === "free"
-                  ? "start the free roll ▸"
+                  ? "connect wallet & play free ▸"
                   : gfUnavailable
                     ? `$${RULES.token.symbol} lane opens at token launch`
                     : `pay ${fmtUsd(method === "gf" ? gfPrice : usdcPrice)}${

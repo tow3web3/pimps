@@ -39,7 +39,7 @@ export default function Landing() {
           style={{ textShadow: "0 1px 24px rgba(3,4,9,0.85), 0 0 60px rgba(3,4,9,0.5)" }}
         >
           <span className="chip rise rise-1 !text-[var(--up)] !border-[rgba(52,211,153,0.45)] !text-[11px] !px-4 !py-1.5 hidden sm:inline-block">
-            ● free to play — no wallet, no payment, no signup
+            ● free to play — just connect a wallet, no payment
           </span>
           <h1 className="rise rise-2 font-bold leading-[0.95] mt-6 text-[clamp(44px,9vw,110px)] tracking-tight">
             TRADE MEMECOINS.
