@@ -117,7 +117,7 @@ export default function GameOverlays() {
     const paid = status === "paid";
     return (
       <div className="overlay">
-        <div className="overlay-card glass max-w-lg w-full mx-4 p-10 text-center !border-[rgba(0,214,143,0.5)] shadow-[0_0_80px_rgba(0,214,143,0.2)]">
+        <div className="overlay-card glass max-w-lg w-full mx-4 p-10 text-center !border-[rgba(0,214,143,0.5)]">
           <p className="panel-title !text-[var(--up)]">
             all three challenges cleared{isFree ? " · free roll" : ""}
           </p>

@@ -16,7 +16,7 @@ export default function Terms() {
     <div className="min-h-dvh">
       <header className="flex items-center justify-between px-6 md:px-10 h-16 border-b border-[var(--border)]">
         <Link href="/" className="flex items-center gap-2">
-          <span className="w-2 h-2 rotate-45 bg-[var(--cyan)] shadow-[0_0_12px_var(--cyan-glow)]" />
+          <span className="w-2 h-2 rotate-45 bg-[var(--cyan)]" />
           <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
         </Link>
         <Link href="/whitepaper" className="chip hover:text-[var(--ink)] transition-colors">

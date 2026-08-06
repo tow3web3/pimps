@@ -164,7 +164,7 @@ export default function EnterPage() {
     <div className="min-h-dvh flex flex-col">
       <header className="flex items-center justify-between px-6 md:px-10 h-16">
         <Link href="/" className="flex items-center gap-2">
-          <span className="w-2 h-2 rotate-45 bg-[var(--cyan)] shadow-[0_0_12px_var(--cyan-glow)]" />
+          <span className="w-2 h-2 rotate-45 bg-[var(--cyan)]" />
           <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
         </Link>
         <Link href="/terminal" className="chip hover:text-[var(--ink)] transition-colors">
@@ -206,7 +206,7 @@ export default function EnterPage() {
                   onClick={() => setMethod("free")}
                   className={`glass glass-hover p-6 text-left relative overflow-hidden transition-all ${
                     method === "free"
-                      ? "!border-[rgba(0,214,143,0.55)] shadow-[0_0_40px_rgba(0,214,143,0.12)]"
+                      ? "!border-[rgba(0,214,143,0.55)]"
                       : "opacity-70"
                   }`}
                 >
@@ -228,14 +228,14 @@ export default function EnterPage() {
                   onClick={() => setMethod("gf")}
                   className={`glass glass-hover p-6 text-left relative overflow-hidden transition-all ${
                     method === "gf"
-                      ? "!border-[rgba(255,213,138,0.6)] shadow-[0_0_40px_rgba(255,213,138,0.15)]"
+                      ? "!border-[rgba(255,213,138,0.6)]"
                       : "opacity-70"
                   }`}
                 >
                   <span className="absolute top-4 right-4 chip !text-[var(--violet)] !border-[rgba(255,213,138,0.5)]">
                     −{RULES.token.discount * 100}%
                   </span>
-                  <div className="mono text-[10px] tracking-[0.25em] text-[var(--violet)]">
+                  <div className="mono text-[10px] tracking-[0.25em] text-[var(--violet)] pr-14">
                     ${RULES.token.symbol} · HOLDER LANE
                   </div>
                   <div className="flex items-baseline gap-2 mt-3">
@@ -256,7 +256,7 @@ export default function EnterPage() {
                   onClick={() => setMethod("usdc")}
                   className={`glass glass-hover p-6 text-left transition-all ${
                     method === "usdc"
-                      ? "!border-[rgba(255,176,0,0.5)] shadow-[0_0_40px_rgba(255,176,0,0.12)]"
+                      ? "!border-[rgba(255,176,0,0.5)]"
                       : "opacity-70"
                   }`}
                 >

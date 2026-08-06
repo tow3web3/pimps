@@ -18,7 +18,7 @@ export default function Landing() {
 
         <header className="relative z-20 flex items-center justify-between px-6 md:px-10 h-16">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rotate-45 bg-[var(--cyan)] shadow-[0_0_12px_var(--cyan-glow)]" />
+            <span className="w-2 h-2 rotate-45 bg-[var(--cyan)]" />
             <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
           </div>
           <nav className="flex items-center gap-2">
@@ -116,7 +116,7 @@ export default function Landing() {
               </p>
             </div>
           ))}
-          <div className="glass glass-hover p-6 !border-[rgba(255,213,138,0.4)] shadow-[0_0_40px_rgba(255,213,138,0.12)]">
+          <div className="glass glass-hover p-6 !border-[rgba(255,213,138,0.4)]">
             <span className="mono text-[10px] tracking-[0.25em] text-[var(--violet)]">FUNDED</span>
             <div className="mono text-4xl font-bold mt-3 gradient-text">${funded}</div>
             <p className="mono text-[11px] text-[var(--ink-3)] mt-2">
