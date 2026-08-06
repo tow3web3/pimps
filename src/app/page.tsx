@@ -189,9 +189,9 @@ export default function Landing() {
                 </span>
                 <span className="display text-[34px] md:text-[44px]">{p.gainLabel}</span>
                 <p className="col-span-2 md:col-span-1 text-[14px] text-[var(--ink-2)] max-w-md">
-                  {p.num === 1 && "Prove you can read the market without blowing up."}
-                  {p.num === 2 && "Double the stack. Consistency starts to matter more than luck."}
-                  {p.num === 3 && "The final wall. Clear it and the firm pays you, cash."}
+                  {p.num === 1 && `Prove you can read the market without blowing up — first step toward the $${funded}.`}
+                  {p.num === 2 && `Double the stack — one challenge left between you and the $${funded}.`}
+                  {p.num === 3 && `The final wall. Clear it and you get paid $${funded}, cash.`}
                 </p>
                 <span className="mono text-[12px] text-[var(--ink-3)] justify-self-end hidden md:block">
                   {RULES.startBalance} → {p.target} SOL

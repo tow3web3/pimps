@@ -418,13 +418,25 @@ export default function EnterPage() {
               </div>
 
               <ul className="mono text-[11.5px] text-[var(--ink-2)] mt-8 space-y-2 max-w-md mx-auto">
+                {RULES.phases.map((ph, i) => (
+                  <li key={ph.num}>
+                    ▸ challenge 0{ph.num} · {ph.gainLabel} ({RULES.startBalance} → {ph.target}{" "}
+                    SOL){" "}
+                    {i < RULES.phases.length - 1 ? (
+                      `— unlocks challenge 0${ph.num + 1}`
+                    ) : (
+                      <b className="text-[var(--heat-deep)]">
+                        — you get paid $
+                        {method === "free"
+                          ? RULES.freeRewardUsd
+                          : RULES.entryFeeUsd * RULES.fundedMultiple}
+                        , cash
+                      </b>
+                    )}
+                  </li>
+                ))}
                 <li>▸ {RULES.startBalance} SOL demo stack per phase · live pump.fun prices</li>
-                <li>
-                  ▸ pass all three → you get paid $
-                  {method === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple}
-                  , straight to your wallet
-                </li>
-                <li>▸ a fixed cash prize · a losing run costs this fee, nothing more</li>
+                <li>▸ a losing run costs this fee, nothing more</li>
               </ul>
 
               {/* which wallet signs — only without Privy (its modal has its own list) */}

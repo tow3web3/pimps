@@ -153,6 +153,14 @@ export default function ChallengeHUD() {
           </div>
         </div>
 
+        {/* the reason you're here — always visible while trading */}
+        <div className="rounded-lg border border-[rgba(255,82,0,0.35)] px-3 py-2 flex items-baseline justify-between">
+          <span className="panel-title !text-[var(--heat-deep)]">clear all 3</span>
+          <span className="mono text-[13px] font-bold text-[var(--heat-deep)]">
+            ${game.tier === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple} to your wallet
+          </span>
+        </div>
+
         {/* secure pass */}
         {canPass && (
           <button
