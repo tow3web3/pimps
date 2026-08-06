@@ -40,7 +40,7 @@ function SocialLink({ href, label }: { href: string; label: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="chip hover:!text-[var(--cyan)] hover:!border-[rgba(255,176,0,0.4)] transition-colors"
+      className="chip hover:!text-[var(--cyan)] hover:!border-[rgba(255,90,0,0.4)] transition-colors"
     >
       {label} ↗
     </a>
@@ -86,7 +86,7 @@ export default function TokenInfoPanel({ mint }: { mint: string }) {
         {loading && (
           <div className="p-4 space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-6 rounded bg-[rgba(233,231,221,0.05)] animate-pulse" />
+              <div key={i} className="h-6 rounded bg-[rgba(242,239,230,0.05)] animate-pulse" />
             ))}
           </div>
         )}
@@ -194,7 +194,7 @@ export default function TokenInfoPanel({ mint }: { mint: string }) {
                   href={`https://dexscreener.com/solana/${info.pairAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="chip hover:!text-[var(--cyan)] hover:!border-[rgba(255,176,0,0.4)] transition-colors"
+                  className="chip hover:!text-[var(--cyan)] hover:!border-[rgba(255,90,0,0.4)] transition-colors"
                 >
                   dexscreener ↗
                 </a>
@@ -203,7 +203,7 @@ export default function TokenInfoPanel({ mint }: { mint: string }) {
                 href={`https://solscan.io/token/${info.mint}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="chip hover:!text-[var(--cyan)] hover:!border-[rgba(255,176,0,0.4)] transition-colors"
+                className="chip hover:!text-[var(--cyan)] hover:!border-[rgba(255,90,0,0.4)] transition-colors"
               >
                 solscan ↗
               </a>

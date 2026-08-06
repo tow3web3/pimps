@@ -22,7 +22,7 @@ export default function GameOverlays() {
   if (game.status === "unseated") {
     return (
       <div className="overlay">
-        <div className="overlay-card glass max-w-md w-full mx-4 p-8 text-center !border-[rgba(255,176,0,0.35)]">
+        <div className="overlay-card glass max-w-md w-full mx-4 p-8 text-center !border-[rgba(255,90,0,0.35)]">
           <p className="panel-title !text-[var(--cyan)]">wallet connected</p>
           <h2 className="mono text-3xl font-bold mt-2">NO ACTIVE RUN</h2>
           <p className="mono text-xs text-[var(--ink-2)] mt-4 leading-relaxed">

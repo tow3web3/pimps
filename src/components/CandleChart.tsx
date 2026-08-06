@@ -64,13 +64,13 @@ export default function CandleChart({
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: "rgba(233,231,221,0.05)" },
-        horzLines: { color: "rgba(233,231,221,0.05)" },
+        vertLines: { color: "rgba(242,239,230,0.05)" },
+        horzLines: { color: "rgba(242,239,230,0.05)" },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: "rgba(255,176,0,0.4)", labelBackgroundColor: "#0d1120" },
-        horzLine: { color: "rgba(255,176,0,0.4)", labelBackgroundColor: "#0d1120" },
+        vertLine: { color: "rgba(255,90,0,0.4)", labelBackgroundColor: "#0d1120" },
+        horzLine: { color: "rgba(255,90,0,0.4)", labelBackgroundColor: "#0d1120" },
       },
       rightPriceScale: { borderVisible: false },
       timeScale: {
@@ -189,7 +189,7 @@ export default function CandleChart({
     try {
       entryLineRef.current = series.createPriceLine({
         price: avgEntryUsd,
-        color: "#ffd58a",
+        color: "#ffa26b",
         lineWidth: 1,
         lineStyle: 2,
         axisLabelVisible: true,
@@ -268,7 +268,7 @@ export default function CandleChart({
             onClick={() => setTfIdx(i)}
             className={`mono text-[11px] px-2.5 py-1 rounded-md transition-colors ${
               i === tfIdx
-                ? "text-[var(--cyan)] bg-[rgba(255,176,0,0.1)] border border-[rgba(255,176,0,0.35)]"
+                ? "text-[var(--cyan)] bg-[rgba(255,90,0,0.1)] border border-[rgba(255,90,0,0.35)]"
                 : "text-[var(--ink-3)] hover:text-[var(--ink-2)] border border-transparent"
             }`}
           >

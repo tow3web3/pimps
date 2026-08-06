@@ -25,7 +25,7 @@ export default function TopBar() {
         </span>
       </Link>
 
-      <span className="chip !text-[var(--cyan)] !border-[rgba(255,176,0,0.35)] hidden sm:inline-block">
+      <span className="chip !text-[var(--cyan)] !border-[rgba(255,90,0,0.35)] hidden sm:inline-block">
         {game.funded
           ? `funded · ${fmtUsd(game.funded.principalUsd)}`
           : `challenge 0${RULES.phases[game.phase].num} · ${RULES.phases[game.phase].gainLabel}`}
@@ -58,7 +58,7 @@ export default function TopBar() {
           className={`chip shrink-0 whitespace-nowrap transition-colors ${
             wallet
               ? "!text-[var(--up)] !border-[rgba(0,214,143,0.45)] hover:!text-[var(--down)] hover:!border-[rgba(255,82,82,0.45)]"
-              : "!text-[var(--cyan)] !border-[rgba(255,176,0,0.45)] hover:bg-[rgba(255,176,0,0.08)]"
+              : "!text-[var(--cyan)] !border-[rgba(255,90,0,0.45)] hover:bg-[rgba(255,90,0,0.08)]"
           }`}
           title={wallet ? "click to disconnect" : "sign in with your Solana wallet"}
         >
@@ -76,19 +76,19 @@ export default function TopBar() {
         <nav className="hidden sm:flex items-center gap-1.5">
           <Link
             href="/terminal"
-            className={`chip transition-colors ${path === "/terminal" ? "!text-[var(--cyan)] !border-[rgba(255,176,0,0.4)]" : "hover:text-[var(--ink)]"}`}
+            className={`chip transition-colors ${path === "/terminal" ? "!text-[var(--cyan)] !border-[rgba(255,90,0,0.4)]" : "hover:text-[var(--ink)]"}`}
           >
             terminal
           </Link>
           <Link
             href="/leaderboard"
-            className={`chip transition-colors ${path === "/leaderboard" ? "!text-[var(--cyan)] !border-[rgba(255,176,0,0.4)]" : "hover:text-[var(--ink)]"}`}
+            className={`chip transition-colors ${path === "/leaderboard" ? "!text-[var(--cyan)] !border-[rgba(255,90,0,0.4)]" : "hover:text-[var(--ink)]"}`}
           >
             board
           </Link>
           <Link
             href="/dashboard"
-            className={`chip transition-colors ${path === "/dashboard" ? "!text-[var(--cyan)] !border-[rgba(255,176,0,0.4)]" : "hover:text-[var(--ink)]"}`}
+            className={`chip transition-colors ${path === "/dashboard" ? "!text-[var(--cyan)] !border-[rgba(255,90,0,0.4)]" : "hover:text-[var(--ink)]"}`}
           >
             dashboard
           </Link>
@@ -105,7 +105,7 @@ export default function TopBar() {
             <Link
               key={href}
               href={href}
-              className={`chip !px-2.5 !text-[13px] ${path === href ? "!text-[var(--cyan)] !border-[rgba(255,176,0,0.4)]" : ""}`}
+              className={`chip !px-2.5 !text-[13px] ${path === href ? "!text-[var(--cyan)] !border-[rgba(255,90,0,0.4)]" : ""}`}
             >
               {icon}
             </Link>

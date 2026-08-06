@@ -1,11 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { BRAND, TAGLINE } from "@/lib/rules";
 import "./globals.css";
 
-const grotesk = Space_Grotesk({
-  variable: "--font-grotesk",
+// The type trio IS the brand: Bricolage for voice, Instrument for irony,
+// JetBrains for numbers. Nothing here ships a default-looking font.
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin"],
+});
+
+const serif = Instrument_Serif({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
 });
 
 const jbmono = JetBrains_Mono({
@@ -25,16 +34,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#05060b",
-  colorScheme: "dark",
+  themeColor: "#f2efe6",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${grotesk.variable} ${jbmono.variable} h-full antialiased`}
-      style={{ colorScheme: "dark" }}
+      className={`${bricolage.variable} ${serif.variable} ${jbmono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <div className="bg-scene" aria-hidden />

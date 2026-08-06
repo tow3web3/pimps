@@ -1,33 +1,67 @@
 @import "tailwindcss";
 
-/* ══ GETFUNDED — terminal design system ═══════════════════════════════════
-   One accent. Flat panels. Hairline borders. Mono everywhere.
-   The machine an operator trusts does not glow.                            */
+/* ══ GETFUNDED — design system v3 ═════════════════════════════════════════
+   Two rooms, one brand.
+   The FRONT OF HOUSE (landing, enter, docs) is paper: bone white, hard ink,
+   one heat-orange accent, Bricolage Grotesque display, Instrument Serif
+   italics, brutalist cards that move.
+   The DESK (terminal, dashboard) stays black: dense, mono, the same orange.  */
 
 :root {
-  --bg: #0a0a09;
-  --bg-raised: #0e0e0c;
-  --panel: #0e0e0c;
-  --panel-solid: #0e0e0c;
-  --border: #232320;
-  --border-strong: #3a3931;
+  --bg: #0f0e0c;
+  --bg-raised: #14120f;
+  --panel: #14120f;
+  --panel-solid: #14120f;
+  --border: #262420;
+  --border-strong: #403c34;
 
-  --ink: #e9e7dd;
-  --ink-2: #98958a;
-  --ink-3: #5c5a50;
+  --ink: #f2efe6;
+  --ink-2: #a09b8c;
+  --ink-3: #605c50;
 
-  /* the single accent — terminal amber. legacy var names kept so every
-     component recolors without being touched */
-  --cyan: #ffb000;
-  --violet: #ffd58a;
-  --amber: #ffb000;
+  /* one accent — heat orange. legacy var names kept so components recolor
+     without being touched */
+  --heat: #ff5a00;
+  --heat-soft: #ffa26b;
+  --cyan: #ff5a00;
+  --violet: #ffa26b;
+  --amber: #ff5a00;
   --up: #00d68f;
   --down: #ff5252;
 
-  --cyan-glow: rgba(255, 176, 0, 0.18);
-  --violet-glow: rgba(255, 213, 138, 0.15);
+  --cyan-glow: rgba(255, 90, 0, 0.18);
+  --violet-glow: rgba(255, 162, 107, 0.15);
   --up-glow: rgba(0, 214, 143, 0.18);
   --down-glow: rgba(255, 82, 82, 0.18);
+}
+
+/* the paper room — flips every token, so any component works in both */
+.paper {
+  --bg: #f2efe6;
+  --bg-raised: #ece7d8;
+  --panel: #f9f6ee;
+  --panel-solid: #f9f6ee;
+  --border: #d9d3c2;
+  --border-strong: #131110;
+
+  --ink: #131110;
+  --ink-2: #575349;
+  --ink-3: #8d8778;
+
+  --heat: #ff5200;
+  --heat-deep: #d63c00;
+  --cyan: #d63c00;
+  --violet: #d63c00;
+  --amber: #ff5200;
+  --up: #0a8f55;
+  --down: #cf3b31;
+
+  color-scheme: light;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-bricolage), sans-serif;
+  background-image: radial-gradient(rgba(19, 17, 16, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 @theme inline {
@@ -41,16 +75,18 @@
   --color-up: var(--up);
   --color-down: var(--down);
   --color-amber: var(--amber);
-  --font-display: var(--font-jbmono), ui-monospace, monospace;
+  --font-display: var(--font-bricolage), sans-serif;
   --font-mono: var(--font-jbmono), ui-monospace, monospace;
 }
 
-html,
-body {
+html {
   height: 100%;
 }
 
+/* min-height only: a fixed height + flex column would shrink page wrappers to
+   one viewport and their background with them */
 body {
+  min-height: 100%;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-jbmono), ui-monospace, monospace;
@@ -59,8 +95,7 @@ body {
   overflow-x: hidden;
 }
 
-/* flat black. a barely-there dot grid gives the surface texture without
-   ever reading as decoration */
+/* the desk's flat black + faint dot grid */
 .bg-scene {
   position: fixed;
   inset: 0;
@@ -71,16 +106,59 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(233, 231, 221, 0.05) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(242, 239, 230, 0.05) 1px, transparent 1px);
   background-size: 26px 26px;
 }
-
-/* scanlines retired — kept as a no-op so the layout doesn't change */
 .scanlines {
   display: none;
 }
 
-/* ── panels: flat, square, hairline ── */
+/* ── type ────────────────────────────────────────────────────────────── */
+.display {
+  font-family: var(--font-bricolage), sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.94;
+}
+.serif {
+  font-family: var(--font-serif), serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.mono {
+  font-family: var(--font-jbmono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.text-up { color: var(--up); }
+.text-down { color: var(--down); }
+
+/* legacy headline helper → solid accent */
+.gradient-text {
+  color: var(--heat);
+}
+.glitch::before,
+.glitch::after {
+  display: none;
+  content: none;
+}
+
+.panel-title {
+  font-family: var(--font-jbmono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* outlined display type — the poster trick. stroke color comes from
+   --outline-c (currentColor would be the transparent fill) */
+.outline-text {
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--outline-c, var(--ink));
+}
+
+/* ── the desk: flat panels, hairline borders ─────────────────────────── */
 .glass {
   background: var(--panel-solid);
   border: 1px solid var(--border);
@@ -93,35 +171,48 @@ body {
   border-color: var(--border-strong);
 }
 
-.panel-title {
-  font-family: var(--font-jbmono), monospace;
-  font-size: 10px;
-  letter-spacing: 0.18em;
+/* ── the front of house: brutalist cards that move ───────────────────── */
+.card-brut {
+  background: var(--panel-solid);
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  box-shadow: 5px 5px 0 var(--ink);
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-brut:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 var(--ink);
+}
+.card-heat {
+  box-shadow: 5px 5px 0 var(--heat);
+}
+.card-heat:hover {
+  box-shadow: 8px 8px 0 var(--heat);
+}
+
+/* rotated price-sticker */
+.sticker {
+  display: inline-block;
+  font-family: var(--font-bricolage), sans-serif;
+  font-weight: 800;
   text-transform: uppercase;
-  color: var(--ink-3);
+  letter-spacing: 0.03em;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--heat);
+  color: #131110;
+  box-shadow: 3px 3px 0 var(--ink);
+  transform: rotate(-5deg);
+  animation: wobble 5s ease-in-out infinite;
+}
+@keyframes wobble {
+  0%, 100% { transform: rotate(-5deg) translateY(0); }
+  50% { transform: rotate(-1deg) translateY(-5px); }
 }
 
-/* ── type helpers ── */
-.mono {
-  font-family: var(--font-jbmono), ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-}
-.text-up { color: var(--up); }
-.text-down { color: var(--down); }
-
-/* headline treatment: solid amber, no gradient */
-.gradient-text {
-  color: var(--amber);
-}
-
-/* glitch retired — headlines stand still */
-.glitch::before,
-.glitch::after {
-  display: none;
-  content: none;
-}
-
-/* ── buttons: square, decisive, one accent ── */
+/* ── buttons ─────────────────────────────────────────────────────────── */
 .btn {
   font-family: var(--font-jbmono), monospace;
   font-size: 12px;
@@ -136,30 +227,30 @@ body {
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
   user-select: none;
 }
-.btn:hover { border-color: var(--ink-2); background: rgba(233, 231, 221, 0.04); }
+.btn:hover { border-color: var(--ink-2); background: rgba(242, 239, 230, 0.05); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
 
 .btn-primary {
-  background: var(--amber);
-  border-color: var(--amber);
-  color: #0a0a09;
+  background: var(--heat);
+  border-color: var(--heat);
+  color: #131110;
   font-weight: 700;
 }
 .btn-primary:hover:not(:disabled) {
-  background: #ffc233;
-  border-color: #ffc233;
-  color: #0a0a09;
+  background: #ff7a2e;
+  border-color: #ff7a2e;
+  color: #131110;
 }
 
 .btn-cyan {
-  border-color: var(--amber);
-  color: var(--amber);
+  border-color: var(--heat);
+  color: var(--heat);
   background: transparent;
 }
 .btn-cyan:hover:not(:disabled) {
-  background: rgba(255, 176, 0, 0.1);
-  border-color: var(--amber);
+  background: rgba(255, 90, 0, 0.1);
+  border-color: var(--heat);
 }
 
 .btn-buy {
@@ -176,7 +267,82 @@ body {
 }
 .btn-sell:hover:not(:disabled) { background: rgba(255, 82, 82, 0.1); }
 
-/* ── tags ── */
+/* paper buttons: solid ink / solid heat, hard shadow, arrow that leans in */
+.btn-ink,
+.btn-heat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--font-bricolage), sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  padding: 14px 26px;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 4px 4px 0 var(--ink);
+  transition:
+    transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.15s ease;
+}
+.btn-ink {
+  background: var(--ink);
+  color: var(--bg);
+  box-shadow: 4px 4px 0 var(--heat);
+}
+.btn-heat {
+  background: var(--heat);
+  color: #131110;
+}
+.btn-ink:hover,
+.btn-heat:hover {
+  transform: translate(-2px, -2px);
+}
+.btn-ink:hover { box-shadow: 6px 6px 0 var(--heat); }
+.btn-heat:hover { box-shadow: 6px 6px 0 var(--ink); }
+.btn-ink:active,
+.btn-heat:active {
+  transform: translate(0, 0);
+  box-shadow: 2px 2px 0 var(--heat);
+}
+.btn-arrow {
+  display: inline-block;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.btn-ink:hover .btn-arrow,
+.btn-heat:hover .btn-arrow,
+.link-und:hover .btn-arrow {
+  transform: translateX(5px);
+}
+
+/* editorial link: thick underline that draws in */
+.link-und {
+  position: relative;
+  font-family: var(--font-bricolage), sans-serif;
+  font-weight: 600;
+  text-decoration: none;
+}
+.link-und::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 2px;
+  background: var(--heat);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.link-und:hover::after {
+  transform: scaleX(1);
+}
+
+/* ── tags ────────────────────────────────────────────────────────────── */
 .chip {
   font-family: var(--font-jbmono), monospace;
   font-size: 10px;
@@ -189,12 +355,12 @@ body {
   white-space: nowrap;
 }
 
-/* ── meters: flat bars ── */
+/* ── meters ──────────────────────────────────────────────────────────── */
 .meter {
   position: relative;
   height: 7px;
   border-radius: 1px;
-  background: #1a1a17;
+  background: rgba(128, 124, 110, 0.18);
   border: 1px solid var(--border);
   overflow: hidden;
 }
@@ -203,10 +369,9 @@ body {
   inset: 0 auto 0 0;
   transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s ease;
 }
-/* shimmer retired */
 .meter-fill.shimmer::after { content: none; }
 
-/* ── live dot: a steady blink, like a recording light ── */
+/* ── live dot ────────────────────────────────────────────────────────── */
 @keyframes blink {
   0%, 70% { opacity: 1; }
   71%, 100% { opacity: 0.25; }
@@ -218,12 +383,11 @@ body {
   background: var(--up);
   animation: blink 1.6s steps(1) infinite;
 }
-
 .secure-pass {
   animation: blink 1.2s steps(1) infinite;
 }
 
-/* ── overlays: hard frame on dimmed black ── */
+/* ── overlays ────────────────────────────────────────────────────────── */
 .overlay {
   position: fixed;
   inset: 0;
@@ -231,7 +395,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(6, 6, 5, 0.88);
+  background: rgba(8, 7, 6, 0.88);
   animation: overlay-in 0.25s ease;
 }
 @keyframes overlay-in {
@@ -246,25 +410,25 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-/* ── scrollbars ── */
+/* ── scrollbars ──────────────────────────────────────────────────────── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2c2b26 transparent;
+  scrollbar-color: #56524a transparent;
 }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb { background: #2c2b26; border-radius: 0; }
+*::-webkit-scrollbar-thumb { background: #56524a; border-radius: 0; }
 *::-webkit-scrollbar-track { background: transparent; }
 
-/* token row selection: amber edge, flat hover */
+/* token row selection */
 .token-row {
   border-left: 2px solid transparent;
   transition: background 0.1s ease, border-color 0.1s ease;
   cursor: pointer;
 }
-.token-row:hover { background: rgba(233, 231, 221, 0.03); }
+.token-row:hover { background: rgba(242, 239, 230, 0.03); }
 .token-row.selected {
-  background: rgba(255, 176, 0, 0.06);
-  border-left-color: var(--amber);
+  background: rgba(255, 90, 0, 0.07);
+  border-left-color: var(--heat);
 }
 
 /* price flash on tick */
@@ -279,7 +443,59 @@ body {
 .flash-up { animation: flash-up 0.8s ease-out; }
 .flash-down { animation: flash-down 0.8s ease-out; }
 
-/* landing reveal — quick, not theatrical */
+/* ── motion: the front of house moves ────────────────────────────────── */
+
+/* hero headline — words rise out of a clipping slot, staggered inline */
+.hero-clip {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+.hero-word {
+  display: inline-block;
+  transform: translateY(115%);
+  animation: word-up 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes word-up {
+  to { transform: translateY(0); }
+}
+
+/* underline that draws itself under the serif word */
+.draw-under {
+  position: relative;
+}
+.draw-under::after {
+  content: "";
+  position: absolute;
+  left: 0.02em;
+  right: 0.02em;
+  bottom: 0.04em;
+  height: 0.055em;
+  background: var(--heat);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: draw-in 0.55s 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes draw-in {
+  to { transform: scaleX(1); }
+}
+
+/* scroll reveal — driven by the Reveal component */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* legacy load-in (kept for pages not yet rebuilt) */
 @keyframes rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
@@ -290,13 +506,48 @@ body {
 .rise-3 { animation-delay: 0.18s; }
 .rise-4 { animation-delay: 0.26s; }
 
+/* marquee */
+@keyframes tape-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.tape-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: tape-scroll 45s linear infinite;
+}
+.tape-track:hover { animation-play-state: paused; }
+.tape-slow { animation-duration: 70s; }
+.tape-fast { animation-duration: 28s; }
+
+/* the ink band — dark strip on paper pages */
+.band {
+  background: #131110;
+  color: #f2efe6;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise,
   .secure-pass,
   .live-dot,
   .flash-up,
-  .flash-down {
+  .flash-down,
+  .sticker,
+  .tape-track {
     animation: none !important;
+  }
+  .hero-word {
+    animation: none !important;
+    transform: none;
+  }
+  .draw-under::after {
+    animation: none !important;
+    transform: scaleX(1);
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
 }
 
@@ -309,7 +560,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 .field {
   width: 100%;
-  background: #090908;
+  background: rgba(128, 124, 110, 0.08);
   border: 1px solid var(--border);
   border-radius: 2px;
   color: var(--ink);
@@ -320,17 +571,5 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   transition: border-color 0.12s ease;
 }
 .field:focus {
-  border-color: var(--amber);
+  border-color: var(--heat);
 }
-
-/* ── the tape: an honest marquee ── */
-@keyframes tape-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-.tape-track {
-  display: inline-flex;
-  white-space: nowrap;
-  animation: tape-scroll 45s linear infinite;
-}
-.tape-track:hover { animation-play-state: paused; }

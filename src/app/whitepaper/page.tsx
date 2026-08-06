@@ -47,7 +47,7 @@ function Row({ k, v }: { k: string; v: string }) {
 
 function Callout({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="glass !border-[rgba(255,176,0,0.3)] p-5 my-6">
+    <div className="glass !border-[rgba(255,90,0,0.3)] p-5 my-6">
       <p className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--amber)]">{title}</p>
       <div className="text-[13px] text-[var(--ink-2)] mt-2 leading-relaxed">{children}</div>
     </div>
@@ -59,7 +59,7 @@ export default async function Whitepaper() {
   const { gfMint } = await getConfig();
 
   return (
-    <div className="min-h-dvh">
+    <div className="paper min-h-dvh">
       <header className="sticky top-0 z-40 glass !rounded-none !border-x-0 !border-t-0 flex items-center justify-between px-6 h-14">
         <Link href="/" className="flex items-center gap-2">
           <span className="w-2 h-2 rotate-45 bg-[var(--cyan)]" />

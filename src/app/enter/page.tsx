@@ -160,37 +160,75 @@ export default function EnterPage() {
   const gfPrice = entryFeeGfUsd();
   const reentry = mounted && game.status === "failed";
 
+  const tickets: Array<{
+    m: Method;
+    label: string;
+    price: string;
+    was?: string;
+    copy: string;
+    badge?: string;
+  }> = [
+    {
+      m: "free",
+      label: "free roll",
+      price: "$0",
+      copy: `connect a wallet, no payment · same three challenges · win $${RULES.freeRewardUsd} instead of $${RULES.entryFeeUsd * RULES.fundedMultiple}`,
+    },
+    {
+      m: "gf",
+      label: `$${RULES.token.symbol} holders`,
+      price: fmtUsd(gfPrice),
+      was: fmtUsd(usdcPrice),
+      badge: `−${RULES.token.discount * 100}%`,
+      copy: `paid in ${RULES.token.name} at market rate · burns back into the ecosystem`,
+    },
+    {
+      m: "usdc",
+      label: "usdc classic",
+      price: fmtUsd(usdcPrice),
+      copy: "plain usdc on solana · no token required",
+    },
+  ];
+
   return (
-    <div className="min-h-dvh flex flex-col">
-      <header className="flex items-center justify-between px-6 md:px-10 h-16">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="w-2 h-2 rotate-45 bg-[var(--cyan)]" />
-          <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
+    <div className="paper min-h-dvh flex flex-col">
+      <header className="flex items-center justify-between px-5 md:px-10 h-16 border-b-2 border-[var(--ink)]">
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rotate-45 bg-[var(--heat)] border border-[var(--ink)]" />
+          <span className="display text-lg tracking-tight">{BRAND}</span>
         </Link>
-        <Link href="/terminal" className="chip hover:text-[var(--ink)] transition-colors">
-          skip — already seated ▸
+        <Link href="/terminal" className="link-und text-[14px]">
+          skip — already seated <span className="btn-arrow">→</span>
         </Link>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 pt-6 pb-16">
-        <div className="w-full max-w-2xl">
-          <p className="panel-title text-center">
+      <main className="flex-1 flex items-center justify-center px-4 pt-10 pb-16">
+        <div className="w-full max-w-3xl">
+          <p className="mono text-[11px] tracking-[0.3em] uppercase text-[var(--heat-deep)] text-center">
             {reentry ? `re-entry · attempt #${game.attempt + 1}` : "entry"}
           </p>
-          <h1 className="text-3xl md:text-4xl font-bold text-center mt-2">
-            {reentry ? "Back for another run." : "Take your seat."}
+          <h1 className="display text-[clamp(40px,7vw,72px)] text-center mt-3">
+            {reentry ? (
+              <>
+                Back for <em className="serif text-[var(--heat)]">another run.</em>
+              </>
+            ) : (
+              <>
+                Take your <em className="serif text-[var(--heat)]">seat.</em>
+              </>
+            )}
           </h1>
-          <p className="text-center text-[var(--ink-2)] text-sm mt-3 max-w-md mx-auto">
+          <p className="text-center text-[var(--ink-2)] text-[15px] mt-4 max-w-md mx-auto">
             Play the full gauntlet for free, or enter for real to get funded — pay in{" "}
             {RULES.token.symbol} and the firm takes {RULES.token.discount * 100}% off.
           </p>
           {mounted && (
-            <p className="text-center mt-3">
+            <p className="text-center mt-4">
               <span
-                className={`chip ${
+                className={`chip !text-[11px] !px-3 !py-1 ${
                   live
-                    ? "!text-[var(--up)] !border-[rgba(0,214,143,0.45)]"
-                    : "!text-[var(--amber)] !border-[rgba(255,176,0,0.35)]"
+                    ? "!text-[var(--up)] !border-[var(--up)]"
+                    : "!text-[var(--heat-deep)] !border-[var(--heat-deep)]"
                 }`}
               >
                 {live ? "● payments live · on-chain usdc" : "◌ payments simulated · preview"}
@@ -200,77 +238,55 @@ export default function EnterPage() {
 
           {!processing ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8">
-                {/* FREE ROLL */}
-                <button
-                  onClick={() => setMethod("free")}
-                  className={`glass glass-hover p-6 text-left relative overflow-hidden transition-all ${
-                    method === "free"
-                      ? "!border-[rgba(0,214,143,0.55)]"
-                      : "opacity-70"
-                  }`}
-                >
-                  <span className="absolute top-4 right-4 chip !text-[var(--up)] !border-[rgba(0,214,143,0.5)]">
-                    free roll
-                  </span>
-                  <div className="mono text-[10px] tracking-[0.25em] text-[var(--up)] pr-16">
-                    $0 · FREE
-                  </div>
-                  <div className="mono text-4xl font-bold mt-3 text-up">$0</div>
-                  <p className="mono text-[11px] text-[var(--ink-2)] mt-3 leading-relaxed">
-                    connect your wallet, no payment · same three challenges · pass and trade a $
-                    {RULES.freeRewardUsd} account instead of $
-                    {RULES.entryFeeUsd * RULES.fundedMultiple}
-                  </p>
-                </button>
-                {/* DGN — the discounted lane */}
-                <button
-                  onClick={() => setMethod("gf")}
-                  className={`glass glass-hover p-6 text-left relative overflow-hidden transition-all ${
-                    method === "gf"
-                      ? "!border-[rgba(255,213,138,0.6)]"
-                      : "opacity-70"
-                  }`}
-                >
-                  <span className="absolute top-4 right-4 chip !text-[var(--violet)] !border-[rgba(255,213,138,0.5)]">
-                    −{RULES.token.discount * 100}%
-                  </span>
-                  <div className="mono text-[10px] tracking-[0.25em] text-[var(--violet)] pr-14">
-                    ${RULES.token.symbol} · HOLDER LANE
-                  </div>
-                  <div className="flex items-baseline gap-2 mt-3">
-                    <span className="mono text-4xl font-bold gradient-text">
-                      {fmtUsd(gfPrice)}
-                    </span>
-                    <span className="mono text-sm text-[var(--ink-3)] line-through">
-                      {fmtUsd(usdcPrice)}
-                    </span>
-                  </div>
-                  <p className="mono text-[11px] text-[var(--ink-2)] mt-3 leading-relaxed">
-                    paid in {RULES.token.name} at market rate · burns back into the ecosystem
-                  </p>
-                </button>
-
-                {/* USDC */}
-                <button
-                  onClick={() => setMethod("usdc")}
-                  className={`glass glass-hover p-6 text-left transition-all ${
-                    method === "usdc"
-                      ? "!border-[rgba(255,176,0,0.5)]"
-                      : "opacity-70"
-                  }`}
-                >
-                  <div className="mono text-[10px] tracking-[0.25em] text-[var(--cyan)]">
-                    USDC · CLASSIC
-                  </div>
-                  <div className="mono text-4xl font-bold mt-3">{fmtUsd(usdcPrice)}</div>
-                  <p className="mono text-[11px] text-[var(--ink-2)] mt-3 leading-relaxed">
-                    plain usdc on solana · no token required
-                  </p>
-                </button>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mt-10">
+                {tickets.map((t) => {
+                  const on = method === t.m;
+                  return (
+                    <button
+                      key={t.m}
+                      onClick={() => setMethod(t.m)}
+                      className={`relative p-6 text-left rounded-[4px] border-2 transition-all duration-150 ${
+                        on
+                          ? "card-brut card-heat border-[var(--ink)] -translate-y-0.5"
+                          : "border-[var(--border)] bg-transparent hover:border-[var(--ink)]"
+                      }`}
+                    >
+                      {t.badge && (
+                        <span className="sticker absolute -top-4 -right-2 px-3 py-1.5 text-[11px]">
+                          {t.badge}
+                        </span>
+                      )}
+                      <span
+                        className={`mono text-[10px] tracking-[0.25em] uppercase ${
+                          on ? "text-[var(--heat-deep)]" : "text-[var(--ink-3)]"
+                        }`}
+                      >
+                        {t.label}
+                      </span>
+                      <div className="flex items-baseline gap-2 mt-3">
+                        <span className="display text-[40px] leading-none">{t.price}</span>
+                        {t.was && (
+                          <span className="mono text-[13px] text-[var(--ink-3)] line-through">
+                            {t.was}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[12.5px] text-[var(--ink-2)] mt-3 leading-relaxed">
+                        {t.copy}
+                      </p>
+                      <span
+                        className={`mono text-[10px] mt-4 inline-block ${
+                          on ? "text-[var(--heat-deep)]" : "text-[var(--ink-3)]"
+                        }`}
+                      >
+                        {on ? "● selected" : "○ choose"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
-              <ul className="mono text-[11px] text-[var(--ink-2)] mt-6 space-y-1.5 max-w-md mx-auto">
+              <ul className="mono text-[11.5px] text-[var(--ink-2)] mt-8 space-y-2 max-w-md mx-auto">
                 <li>▸ {RULES.startBalance} SOL demo stack per phase · live pump.fun prices</li>
                 <li>
                   ▸ pass all three → $
@@ -280,38 +296,42 @@ export default function EnterPage() {
                 <li>▸ a fixed cash prize · a losing run costs this fee, nothing more</li>
               </ul>
 
-              <button
-                onClick={pay}
-                disabled={gfUnavailable}
-                className="btn btn-primary w-full max-w-md mx-auto block !py-4 mt-8"
-              >
-                {method === "free"
-                  ? "connect wallet & play free ▸"
-                  : gfUnavailable
-                    ? `$${RULES.token.symbol} lane opens at token launch`
-                    : `pay ${fmtUsd(method === "gf" ? gfPrice : usdcPrice)}${
-                        method === "gf" ? ` in ${RULES.token.symbol}` : " usdc"
-                      } ▸`}
-              </button>
-              <p className="mono text-[10px] text-[var(--ink-3)] mt-3 text-center">
+              <div className="max-w-md mx-auto mt-9">
+                <button onClick={pay} disabled={gfUnavailable} className="btn-heat w-full !py-4">
+                  {method === "free"
+                    ? "Connect wallet & play free"
+                    : gfUnavailable
+                      ? `$${RULES.token.symbol} lane opens at token launch`
+                      : `Pay ${fmtUsd(method === "gf" ? gfPrice : usdcPrice)}${
+                          method === "gf" ? ` in ${RULES.token.symbol}` : " USDC"
+                        }`}{" "}
+                  <span className="btn-arrow">→</span>
+                </button>
+              </div>
+              <p className="mono text-[10px] text-[var(--ink-3)] mt-4 text-center">
                 {live && method !== "free"
                   ? "live payment · phantom will ask you to sign a real usdc transfer on solana"
                   : "simulated in this preview build — no wallet is contacted, nothing is signed"}
               </p>
             </>
           ) : (
-            <div className="glass max-w-md mx-auto mt-8 p-6">
+            /* the receipt printer — a little dark terminal on the paper page */
+            <div className="band max-w-md mx-auto mt-10 p-6 rounded-[4px] border-2 border-[var(--ink)] shadow-[5px_5px_0_var(--heat)]">
               <div className="flex items-center gap-2 mb-4">
                 <span className="live-dot" />
-                <span className="panel-title">processing payment · simulated</span>
+                <span className="mono text-[10px] tracking-[0.18em] uppercase text-[rgba(242,239,230,0.5)]">
+                  processing payment
+                </span>
               </div>
               <div className="mono text-[12px] space-y-2.5 min-h-[120px]">
                 {lines.map((l, i) => (
                   <p
                     key={i}
-                    className={`rise ${l.startsWith("✓") ? "text-up" : "text-[var(--ink-2)]"}`}
+                    className={`rise ${
+                      l.startsWith("✓") ? "text-[#2be08f]" : "text-[rgba(242,239,230,0.75)]"
+                    }`}
                   >
-                    <span className="text-[var(--ink-3)] mr-2">{">"}</span>
+                    <span className="text-[rgba(242,239,230,0.4)] mr-2">{">"}</span>
                     {l}
                   </p>
                 ))}

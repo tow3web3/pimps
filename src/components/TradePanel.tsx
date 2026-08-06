@@ -125,7 +125,7 @@ export default function TradePanel() {
                 ))}
                 <button
                   onClick={() => setAmount(maxSol.toFixed(2))}
-                  className="chip hover:border-[rgba(255,176,0,0.5)] hover:text-[var(--cyan)] transition-colors flex-1"
+                  className="chip hover:border-[rgba(255,90,0,0.5)] hover:text-[var(--cyan)] transition-colors flex-1"
                 >
                   max
                 </button>

@@ -27,7 +27,7 @@ export default function OG() {
           justifyContent: "center",
           padding: "0 80px",
           background:
-            "radial-gradient(900px 500px at 20% 0%, rgba(255,176,0,0.16), transparent 60%), radial-gradient(900px 600px at 90% 110%, rgba(255,213,138,0.18), transparent 60%), #05060b",
+            "radial-gradient(900px 500px at 20% 0%, rgba(255,90,0,0.16), transparent 60%), radial-gradient(900px 600px at 90% 110%, rgba(255,162,107,0.18), transparent 60%), #05060b",
           color: "#e7ecf8",
           fontFamily: "monospace",
         }}
@@ -37,7 +37,7 @@ export default function OG() {
             style={{
               width: 18,
               height: 18,
-              background: "#ffb000",
+              background: "#ff5a00",
               transform: "rotate(45deg)",
             }}
           />
@@ -53,7 +53,7 @@ export default function OG() {
             fontWeight: 700,
             lineHeight: 1.02,
             letterSpacing: -2,
-            color: "#ffb000",
+            color: "#ff5a00",
           }}
         >
           GET FUNDED.
@@ -71,7 +71,7 @@ export default function OG() {
                 display: "flex",
                 fontSize: 21,
                 color: "#e7ecf8",
-                border: "1px solid rgba(233,231,221,0.28)",
+                border: "1px solid rgba(242,239,230,0.28)",
                 borderRadius: 999,
                 padding: "10px 22px",
               }}

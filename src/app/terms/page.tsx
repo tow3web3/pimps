@@ -13,7 +13,7 @@ function H2({ children }: { children: React.ReactNode }) {
 
 export default function Terms() {
   return (
-    <div className="min-h-dvh">
+    <div className="paper min-h-dvh">
       <header className="flex items-center justify-between px-6 md:px-10 h-16 border-b border-[var(--border)]">
         <Link href="/" className="flex items-center gap-2">
           <span className="w-2 h-2 rotate-45 bg-[var(--cyan)]" />
@@ -28,7 +28,7 @@ export default function Terms() {
         <p className="panel-title">legal</p>
         <h1 className="text-3xl font-bold text-[var(--ink)] mt-2">Terms &amp; risk disclosure</h1>
 
-        <div className="glass !border-[rgba(255,176,0,0.35)] p-5 mt-8">
+        <div className="glass !border-[rgba(255,90,0,0.35)] p-5 mt-8">
           <p className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--amber)]">
             draft — not legal advice
           </p>

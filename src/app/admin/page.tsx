@@ -69,7 +69,7 @@ export default function AdminPage() {
           <span className="w-2 h-2 rotate-45 bg-[var(--cyan)]" />
           <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
         </Link>
-        <span className="chip !text-[var(--amber)] !border-[rgba(255,176,0,0.4)]">
+        <span className="chip !text-[var(--amber)] !border-[rgba(255,90,0,0.4)]">
           launch console
         </span>
       </header>
@@ -145,7 +145,7 @@ export default function AdminPage() {
             </div>
 
             {/* the launch action */}
-            <div className="glass p-5 mt-4 !border-[rgba(255,213,138,0.4)]">
+            <div className="glass p-5 mt-4 !border-[rgba(255,162,107,0.4)]">
               <span className="panel-title !text-[var(--violet)]">
                 ${RULES.token.symbol} contract address
               </span>

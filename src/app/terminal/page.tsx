@@ -150,7 +150,7 @@ export default function TerminalPage() {
             onClick={() => setTab(id)}
             className={`flex flex-col items-center gap-0.5 py-2.5 transition-colors ${
               tab === id
-                ? "text-[var(--cyan)] bg-[rgba(255,176,0,0.07)]"
+                ? "text-[var(--cyan)] bg-[rgba(255,90,0,0.07)]"
                 : "text-[var(--ink-3)]"
             }`}
           >

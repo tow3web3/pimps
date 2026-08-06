@@ -71,7 +71,7 @@ export default function PositionsPanel() {
                     return (
                       <tr
                         key={p.mint}
-                        className="border-t border-[var(--border)] hover:bg-[rgba(233,231,221,0.04)] cursor-pointer"
+                        className="border-t border-[var(--border)] hover:bg-[rgba(242,239,230,0.04)] cursor-pointer"
                         onClick={() => select(p.mint)}
                       >
                         <td className="px-4 py-2.5">
