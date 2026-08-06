@@ -18,6 +18,7 @@ import {
   type RuntimeConfig,
 } from "@/lib/payments";
 import { connectWallet, emailLogin, serverEnter, useAuth } from "@/lib/authClient";
+import PrivyEmail, { privyEnabled } from "@/components/PrivyEmail";
 
 type Method = "usdc" | "gf" | "free";
 
@@ -176,6 +177,25 @@ export default function EnterPage() {
           ? "this wallet doesn't hold enough USDC (plus a little SOL for network fees)"
           : raw;
       setError(friendly);
+      setProcessing(false);
+    }
+  };
+
+  // shared tail of every email path: seat the account, open the terminal
+  const afterEmailAuth = async () => {
+    setProcessing(true);
+    setError(null);
+    setLines([
+      "✓ signed in — a Solana wallet was created for your account",
+      "registering free roll seat…",
+    ]);
+    try {
+      const r = await serverEnter("free");
+      if (!r.ok && !/already active/i.test(r.error ?? "")) throw new Error(r.error);
+      setLines((l) => [...l, "✓ seat confirmed — welcome to the desk"]);
+      timers.current.push(setTimeout(() => router.push("/terminal"), 800));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "sign-in failed");
       setProcessing(false);
     }
   };
@@ -421,8 +441,22 @@ export default function EnterPage() {
                   </p>
                 </div>
               )}
-              {/* the no-wallet alternative — free roll only */}
-              {method === "free" && (
+              {/* the no-wallet alternative — free roll only. Privy when
+                  configured (email login mints an embedded Solana wallet);
+                  the homemade email+password form as fallback */}
+              {method === "free" && privyEnabled() && (
+                <p className="max-w-md mx-auto mt-5 text-center">
+                  <PrivyEmail
+                    onDone={afterEmailAuth}
+                    onError={(m) => setError(m)}
+                    className="link-und text-[13px] text-[var(--ink-2)]"
+                  >
+                    no wallet? continue with email — we create one for you{" "}
+                    <span className="btn-arrow">→</span>
+                  </PrivyEmail>
+                </p>
+              )}
+              {method === "free" && !privyEnabled() && (
                 <div className="max-w-md mx-auto mt-5">
                   {!emailMode ? (
                     <p className="text-center">
