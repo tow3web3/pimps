@@ -39,7 +39,7 @@ export default function ChallengeHUD() {
   return (
     <div className="glass overflow-hidden">
       {/* phase strip */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] bg-[rgba(34,211,238,0.03)]">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] bg-[rgba(255,176,0,0.03)]">
         <div className="flex items-center gap-2">
           <span className="mono text-xs tracking-[0.25em] text-[var(--cyan)]">
             CHALLENGE 0{phase.num}
@@ -55,7 +55,7 @@ export default function ChallengeHUD() {
                   ? "bg-[var(--up)]"
                   : i === game.phase
                     ? "bg-[var(--cyan)]"
-                    : "bg-[rgba(140,160,255,0.15)]"
+                    : "bg-[rgba(233,231,221,0.15)]"
               }`}
             />
           ))}

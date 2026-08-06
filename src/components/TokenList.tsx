@@ -23,7 +23,7 @@ function TokenIcon({ url, symbol, size = 26 }: { url?: string; symbol: string; s
   }
   return (
     <div
-      className="rounded-full border border-[var(--border)] bg-[rgba(140,160,255,0.08)] flex items-center justify-center shrink-0 mono text-[10px] text-[var(--ink-2)]"
+      className="rounded-full border border-[var(--border)] bg-[rgba(233,231,221,0.08)] flex items-center justify-center shrink-0 mono text-[10px] text-[var(--ink-2)]"
       style={{ width: size, height: size }}
     >
       {symbol.slice(0, 2).toUpperCase()}
@@ -138,7 +138,7 @@ export default function TokenList() {
         {!universeLoaded && (
           <div className="p-4 space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-9 rounded-lg bg-[rgba(140,160,255,0.05)] animate-pulse" />
+              <div key={i} className="h-9 rounded-lg bg-[rgba(233,231,221,0.05)] animate-pulse" />
             ))}
           </div>
         )}

@@ -80,8 +80,8 @@ export default function TradePanel() {
             className={`mono text-xs tracking-[0.2em] uppercase py-3 transition-colors border-b ${
               tab === t
                 ? t === "buy"
-                  ? "text-up border-[var(--up)] bg-[rgba(52,211,153,0.06)]"
-                  : "text-down border-[var(--down)] bg-[rgba(251,113,133,0.06)]"
+                  ? "text-up border-[var(--up)] bg-[rgba(0,214,143,0.06)]"
+                  : "text-down border-[var(--down)] bg-[rgba(255,82,82,0.06)]"
                 : "text-[var(--ink-3)] border-[var(--border)] hover:text-[var(--ink-2)]"
             }`}
           >
@@ -125,7 +125,7 @@ export default function TradePanel() {
                 ))}
                 <button
                   onClick={() => setAmount(maxSol.toFixed(2))}
-                  className="chip hover:border-[rgba(34,211,238,0.5)] hover:text-[var(--cyan)] transition-colors flex-1"
+                  className="chip hover:border-[rgba(255,176,0,0.5)] hover:text-[var(--cyan)] transition-colors flex-1"
                 >
                   max
                 </button>
@@ -251,7 +251,7 @@ export default function TradePanel() {
                         onClick={() => setFraction(f)}
                         className={`chip flex-1 transition-colors ${
                           fraction === f
-                            ? "!border-[rgba(251,113,133,0.55)] !text-[var(--down)]"
+                            ? "!border-[rgba(255,82,82,0.55)] !text-[var(--down)]"
                             : "hover:border-[var(--border-strong)]"
                         }`}
                       >
@@ -288,8 +288,8 @@ export default function TradePanel() {
           <p
             className={`mono text-[11px] rounded-lg px-2.5 py-1.5 border ${
               msg.kind === "ok"
-                ? "text-up border-[rgba(52,211,153,0.3)] bg-[rgba(52,211,153,0.06)]"
-                : "text-down border-[rgba(251,113,133,0.3)] bg-[rgba(251,113,133,0.06)]"
+                ? "text-up border-[rgba(0,214,143,0.3)] bg-[rgba(0,214,143,0.06)]"
+                : "text-down border-[rgba(255,82,82,0.3)] bg-[rgba(255,82,82,0.06)]"
             }`}
           >
             {msg.kind === "ok" ? "✓ " : "✕ "}

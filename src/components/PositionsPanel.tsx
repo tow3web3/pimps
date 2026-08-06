@@ -71,7 +71,7 @@ export default function PositionsPanel() {
                     return (
                       <tr
                         key={p.mint}
-                        className="border-t border-[var(--border)] hover:bg-[rgba(140,160,255,0.04)] cursor-pointer"
+                        className="border-t border-[var(--border)] hover:bg-[rgba(233,231,221,0.04)] cursor-pointer"
                         onClick={() => select(p.mint)}
                       >
                         <td className="px-4 py-2.5">
@@ -110,7 +110,7 @@ export default function PositionsPanel() {
                               e.stopPropagation();
                               void Promise.resolve(useGame.getState().sell(p.mint, 1, mark));
                             }}
-                            className="chip hover:!border-[rgba(251,113,133,0.55)] hover:!text-[var(--down)] transition-colors"
+                            className="chip hover:!border-[rgba(255,82,82,0.55)] hover:!text-[var(--down)] transition-colors"
                           >
                             close
                           </button>

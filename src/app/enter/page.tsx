@@ -189,8 +189,8 @@ export default function EnterPage() {
               <span
                 className={`chip ${
                   live
-                    ? "!text-[var(--up)] !border-[rgba(52,211,153,0.45)]"
-                    : "!text-[var(--amber)] !border-[rgba(251,191,36,0.35)]"
+                    ? "!text-[var(--up)] !border-[rgba(0,214,143,0.45)]"
+                    : "!text-[var(--amber)] !border-[rgba(255,176,0,0.35)]"
                 }`}
               >
                 {live ? "● payments live · on-chain usdc" : "◌ payments simulated · preview"}
@@ -206,11 +206,11 @@ export default function EnterPage() {
                   onClick={() => setMethod("free")}
                   className={`glass glass-hover p-6 text-left relative overflow-hidden transition-all ${
                     method === "free"
-                      ? "!border-[rgba(52,211,153,0.55)] shadow-[0_0_40px_rgba(52,211,153,0.12)]"
+                      ? "!border-[rgba(0,214,143,0.55)] shadow-[0_0_40px_rgba(0,214,143,0.12)]"
                       : "opacity-70"
                   }`}
                 >
-                  <span className="absolute top-4 right-4 chip !text-[var(--up)] !border-[rgba(52,211,153,0.5)]">
+                  <span className="absolute top-4 right-4 chip !text-[var(--up)] !border-[rgba(0,214,143,0.5)]">
                     free roll
                   </span>
                   <div className="mono text-[10px] tracking-[0.25em] text-[var(--up)] pr-16">
@@ -228,11 +228,11 @@ export default function EnterPage() {
                   onClick={() => setMethod("gf")}
                   className={`glass glass-hover p-6 text-left relative overflow-hidden transition-all ${
                     method === "gf"
-                      ? "!border-[rgba(167,139,250,0.6)] shadow-[0_0_40px_rgba(167,139,250,0.15)]"
+                      ? "!border-[rgba(255,213,138,0.6)] shadow-[0_0_40px_rgba(255,213,138,0.15)]"
                       : "opacity-70"
                   }`}
                 >
-                  <span className="absolute top-4 right-4 chip !text-[var(--violet)] !border-[rgba(167,139,250,0.5)]">
+                  <span className="absolute top-4 right-4 chip !text-[var(--violet)] !border-[rgba(255,213,138,0.5)]">
                     −{RULES.token.discount * 100}%
                   </span>
                   <div className="mono text-[10px] tracking-[0.25em] text-[var(--violet)]">
@@ -256,7 +256,7 @@ export default function EnterPage() {
                   onClick={() => setMethod("usdc")}
                   className={`glass glass-hover p-6 text-left transition-all ${
                     method === "usdc"
-                      ? "!border-[rgba(34,211,238,0.5)] shadow-[0_0_40px_rgba(34,211,238,0.12)]"
+                      ? "!border-[rgba(255,176,0,0.5)] shadow-[0_0_40px_rgba(255,176,0,0.12)]"
                       : "opacity-70"
                   }`}
                 >

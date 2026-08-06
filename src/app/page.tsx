@@ -38,7 +38,7 @@ export default function Landing() {
           className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4 -mt-8"
           style={{ textShadow: "0 1px 24px rgba(3,4,9,0.85), 0 0 60px rgba(3,4,9,0.5)" }}
         >
-          <span className="chip rise rise-1 !text-[var(--up)] !border-[rgba(52,211,153,0.45)] !text-[11px] !px-4 !py-1.5 hidden sm:inline-block">
+          <span className="chip rise rise-1 !text-[var(--up)] !border-[rgba(0,214,143,0.45)] !text-[11px] !px-4 !py-1.5 hidden sm:inline-block">
             ● free to play — just connect a wallet, no payment
           </span>
           <h1 className="rise rise-2 font-bold leading-[0.95] mt-6 text-[clamp(44px,9vw,110px)] tracking-tight">
@@ -116,7 +116,7 @@ export default function Landing() {
               </p>
             </div>
           ))}
-          <div className="glass glass-hover p-6 !border-[rgba(167,139,250,0.4)] shadow-[0_0_40px_rgba(167,139,250,0.12)]">
+          <div className="glass glass-hover p-6 !border-[rgba(255,213,138,0.4)] shadow-[0_0_40px_rgba(255,213,138,0.12)]">
             <span className="mono text-[10px] tracking-[0.25em] text-[var(--violet)]">FUNDED</span>
             <div className="mono text-4xl font-bold mt-3 gradient-text">${funded}</div>
             <p className="mono text-[11px] text-[var(--ink-3)] mt-2">
@@ -236,16 +236,16 @@ export default function Landing() {
       <section id="pricing" className="max-w-3xl mx-auto px-4 pb-24 text-center">
         <p className="panel-title">entry</p>
         <h2 className="text-3xl md:text-4xl font-bold mt-2">One fee. Known downside.</h2>
-        <div className="glass glass-hover inline-block mt-10 p-10 text-left w-full max-w-md !border-[rgba(34,211,238,0.3)]">
+        <div className="glass glass-hover inline-block mt-10 p-10 text-left w-full max-w-md !border-[rgba(255,176,0,0.3)]">
           <div className="flex items-baseline justify-between">
             <span className="mono text-5xl font-bold">${RULES.entryFeeUsd}</span>
             <span className="mono text-[11px] text-[var(--ink-3)]">usdc · one-time</span>
           </div>
-          <div className="flex items-center justify-between mt-3 rounded-lg border border-[rgba(167,139,250,0.35)] bg-[rgba(167,139,250,0.06)] px-4 py-2.5">
+          <div className="flex items-center justify-between mt-3 rounded-lg border border-[rgba(255,213,138,0.35)] bg-[rgba(255,213,138,0.06)] px-4 py-2.5">
             <span className="mono text-[12px] text-[var(--violet)]">
               or ${entryFeeGfUsd()} in ${RULES.token.symbol}
             </span>
-            <span className="chip !text-[var(--violet)] !border-[rgba(167,139,250,0.5)]">
+            <span className="chip !text-[var(--violet)] !border-[rgba(255,213,138,0.5)]">
               −{RULES.token.discount * 100}% holder discount
             </span>
           </div>
@@ -268,7 +268,7 @@ export default function Landing() {
         </div>
         <Link
           href="/enter"
-          className="glass glass-hover flex items-center justify-between gap-4 max-w-md mx-auto mt-4 px-6 py-4 !border-[rgba(52,211,153,0.3)]"
+          className="glass glass-hover flex items-center justify-between gap-4 max-w-md mx-auto mt-4 px-6 py-4 !border-[rgba(0,214,143,0.3)]"
         >
           <span className="mono text-[12px] text-left">
             <span className="text-up font-bold">free roll — $0 entry.</span>{" "}

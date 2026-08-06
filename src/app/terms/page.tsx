@@ -28,7 +28,7 @@ export default function Terms() {
         <p className="panel-title">legal</p>
         <h1 className="text-3xl font-bold text-[var(--ink)] mt-2">Terms &amp; risk disclosure</h1>
 
-        <div className="glass !border-[rgba(251,191,36,0.35)] p-5 mt-8">
+        <div className="glass !border-[rgba(255,176,0,0.35)] p-5 mt-8">
           <p className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--amber)]">
             draft — not legal advice
           </p>
@@ -137,7 +137,7 @@ export default function Terms() {
         </p>
 
         <H2>10. Risk disclosure</H2>
-        <div className="glass !border-[rgba(251,113,133,0.35)] p-5 mt-4">
+        <div className="glass !border-[rgba(255,82,82,0.35)] p-5 mt-4">
           <ul className="space-y-2.5 text-[13px]">
             {[
               `Memecoins are extremely volatile. Most challenge attempts fail. Winning the ${fundedAccountUsd() / RULES.entryFeeUsd}x prize is an uncommon outcome, not an expected one.`,

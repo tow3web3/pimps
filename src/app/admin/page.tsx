@@ -69,7 +69,7 @@ export default function AdminPage() {
           <span className="w-2 h-2 rotate-45 bg-[var(--cyan)]" />
           <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
         </Link>
-        <span className="chip !text-[var(--amber)] !border-[rgba(251,191,36,0.4)]">
+        <span className="chip !text-[var(--amber)] !border-[rgba(255,176,0,0.4)]">
           launch console
         </span>
       </header>
@@ -145,7 +145,7 @@ export default function AdminPage() {
             </div>
 
             {/* the launch action */}
-            <div className="glass p-5 mt-4 !border-[rgba(167,139,250,0.4)]">
+            <div className="glass p-5 mt-4 !border-[rgba(255,213,138,0.4)]">
               <span className="panel-title !text-[var(--violet)]">
                 ${RULES.token.symbol} contract address
               </span>
@@ -190,8 +190,8 @@ export default function AdminPage() {
               <p
                 className={`mono text-[11px] rounded-lg px-3 py-2 mt-4 border ${
                   msg.ok
-                    ? "text-up border-[rgba(52,211,153,0.3)] bg-[rgba(52,211,153,0.06)]"
-                    : "text-down border-[rgba(251,113,133,0.3)] bg-[rgba(251,113,133,0.06)]"
+                    ? "text-up border-[rgba(0,214,143,0.3)] bg-[rgba(0,214,143,0.06)]"
+                    : "text-down border-[rgba(255,82,82,0.3)] bg-[rgba(255,82,82,0.06)]"
                 }`}
               >
                 {msg.ok ? "✓ " : "✕ "}

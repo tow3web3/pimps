@@ -53,13 +53,13 @@ function Line({ t, onPick }: { t: FeedTrade; onPick?: (mint: string) => void }) 
   return (
     <button
       onClick={() => onPick?.(t.mint)}
-      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-[rgba(140,160,255,0.05)] transition-colors"
+      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-[rgba(233,231,221,0.05)] transition-colors"
     >
       <span
         className={`mono text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
           t.side === "buy"
-            ? "text-up bg-[rgba(52,211,153,0.12)]"
-            : "text-down bg-[rgba(251,113,133,0.12)]"
+            ? "text-up bg-[rgba(0,214,143,0.12)]"
+            : "text-down bg-[rgba(255,82,82,0.12)]"
         }`}
       >
         {t.side === "buy" ? "BUY" : "SELL"}
@@ -146,8 +146,8 @@ export function FeedToasts() {
       <div
         className={`glass px-4 py-3 flex items-center gap-2.5 ${
           toast.side === "buy"
-            ? "!border-[rgba(52,211,153,0.45)]"
-            : "!border-[rgba(251,113,133,0.45)]"
+            ? "!border-[rgba(0,214,143,0.45)]"
+            : "!border-[rgba(255,82,82,0.45)]"
         }`}
       >
         <span className={`mono text-[11px] ${toast.side === "buy" ? "text-up" : "text-down"}`}>

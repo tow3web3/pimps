@@ -90,8 +90,8 @@ export default function MobileTradeBar() {
           <p
             className={`mono text-[11px] mx-2 mb-1.5 rounded-lg px-3 py-2 border backdrop-blur ${
               msg.ok
-                ? "text-up border-[rgba(52,211,153,0.4)] bg-[rgba(6,20,16,0.92)]"
-                : "text-down border-[rgba(251,113,133,0.4)] bg-[rgba(24,8,12,0.92)]"
+                ? "text-up border-[rgba(0,214,143,0.4)] bg-[rgba(6,20,16,0.92)]"
+                : "text-down border-[rgba(255,82,82,0.4)] bg-[rgba(24,8,12,0.92)]"
             }`}
           >
             {msg.ok ? "✓ " : "✕ "}
@@ -107,7 +107,7 @@ export default function MobileTradeBar() {
                 setSide("sell");
                 setOpen(true);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 border-b border-[var(--border)] bg-[rgba(34,211,238,0.05)]"
+              className="w-full flex items-center gap-2 px-3 py-2 border-b border-[var(--border)] bg-[rgba(255,176,0,0.05)]"
             >
               <span className="panel-title">holding</span>
               <span className="mono text-[11px]">
@@ -131,8 +131,8 @@ export default function MobileTradeBar() {
                     className={`mono text-[12px] tracking-[0.18em] uppercase py-2.5 rounded-lg border transition-colors ${
                       side === s
                         ? s === "buy"
-                          ? "text-up border-[var(--up)] bg-[rgba(52,211,153,0.1)]"
-                          : "text-down border-[var(--down)] bg-[rgba(251,113,133,0.1)]"
+                          ? "text-up border-[var(--up)] bg-[rgba(0,214,143,0.1)]"
+                          : "text-down border-[var(--down)] bg-[rgba(255,82,82,0.1)]"
                         : "text-[var(--ink-3)] border-[var(--border)]"
                     }`}
                   >
@@ -172,7 +172,7 @@ export default function MobileTradeBar() {
                       onClick={() => setFraction(f)}
                       className={`mono text-[12px] py-2.5 rounded-lg border ${
                         fraction === f
-                          ? "text-down border-[var(--down)] bg-[rgba(251,113,133,0.1)]"
+                          ? "text-down border-[var(--down)] bg-[rgba(255,82,82,0.1)]"
                           : "text-[var(--ink-2)] border-[var(--border)]"
                       }`}
                     >

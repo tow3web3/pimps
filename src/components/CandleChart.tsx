@@ -14,8 +14,8 @@ import {
 import type { Candle } from "@/lib/types";
 import { pricePrecision } from "@/lib/format";
 
-const UP = "#34d399";
-const DOWN = "#fb7185";
+const UP = "#00d68f";
+const DOWN = "#ff5252";
 
 const TIMEFRAMES = [
   { label: "1m", tf: "minute", agg: 1, secs: 60 },
@@ -64,13 +64,13 @@ export default function CandleChart({
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: "rgba(140,160,255,0.05)" },
-        horzLines: { color: "rgba(140,160,255,0.05)" },
+        vertLines: { color: "rgba(233,231,221,0.05)" },
+        horzLines: { color: "rgba(233,231,221,0.05)" },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: "rgba(34,211,238,0.4)", labelBackgroundColor: "#0d1120" },
-        horzLine: { color: "rgba(34,211,238,0.4)", labelBackgroundColor: "#0d1120" },
+        vertLine: { color: "rgba(255,176,0,0.4)", labelBackgroundColor: "#0d1120" },
+        horzLine: { color: "rgba(255,176,0,0.4)", labelBackgroundColor: "#0d1120" },
       },
       rightPriceScale: { borderVisible: false },
       timeScale: {
@@ -87,8 +87,8 @@ export default function CandleChart({
       downColor: DOWN,
       borderUpColor: UP,
       borderDownColor: DOWN,
-      wickUpColor: "rgba(52,211,153,0.7)",
-      wickDownColor: "rgba(251,113,133,0.7)",
+      wickUpColor: "rgba(0,214,143,0.7)",
+      wickDownColor: "rgba(255,82,82,0.7)",
     });
     seriesRef.current = series;
 
@@ -141,7 +141,7 @@ export default function CandleChart({
           data.candles.map((c) => ({
             time: c.time as UTCTimestamp,
             value: c.volume,
-            color: c.close >= c.open ? "rgba(52,211,153,0.28)" : "rgba(251,113,133,0.28)",
+            color: c.close >= c.open ? "rgba(0,214,143,0.28)" : "rgba(255,82,82,0.28)",
           })),
         );
         const last = data.candles[data.candles.length - 1];
@@ -189,7 +189,7 @@ export default function CandleChart({
     try {
       entryLineRef.current = series.createPriceLine({
         price: avgEntryUsd,
-        color: "#a78bfa",
+        color: "#ffd58a",
         lineWidth: 1,
         lineStyle: 2,
         axisLabelVisible: true,
@@ -268,7 +268,7 @@ export default function CandleChart({
             onClick={() => setTfIdx(i)}
             className={`mono text-[11px] px-2.5 py-1 rounded-md transition-colors ${
               i === tfIdx
-                ? "text-[var(--cyan)] bg-[rgba(34,211,238,0.1)] border border-[rgba(34,211,238,0.35)]"
+                ? "text-[var(--cyan)] bg-[rgba(255,176,0,0.1)] border border-[rgba(255,176,0,0.35)]"
                 : "text-[var(--ink-3)] hover:text-[var(--ink-2)] border border-transparent"
             }`}
           >

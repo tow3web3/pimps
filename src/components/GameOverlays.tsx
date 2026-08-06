@@ -22,7 +22,7 @@ export default function GameOverlays() {
   if (game.status === "unseated") {
     return (
       <div className="overlay">
-        <div className="overlay-card glass max-w-md w-full mx-4 p-8 text-center !border-[rgba(34,211,238,0.35)]">
+        <div className="overlay-card glass max-w-md w-full mx-4 p-8 text-center !border-[rgba(255,176,0,0.35)]">
           <p className="panel-title !text-[var(--cyan)]">wallet connected</p>
           <h2 className="mono text-3xl font-bold mt-2">NO ACTIVE RUN</h2>
           <p className="mono text-xs text-[var(--ink-2)] mt-4 leading-relaxed">
@@ -41,7 +41,7 @@ export default function GameOverlays() {
     const next = RULES.phases[game.phase + 1];
     return (
       <div className="overlay">
-        <div className="overlay-card glass max-w-md w-full mx-4 p-8 text-center !border-[rgba(52,211,153,0.35)]">
+        <div className="overlay-card glass max-w-md w-full mx-4 p-8 text-center !border-[rgba(0,214,143,0.35)]">
           <p className="panel-title !text-[var(--up)]">objective secured</p>
           <h2
             className="glitch mono text-3xl font-bold mt-2 text-[var(--up)]"
@@ -76,7 +76,7 @@ export default function GameOverlays() {
   if (game.status === "failed") {
     return (
       <div className="overlay">
-        <div className="overlay-card glass max-w-md w-full mx-4 p-8 text-center !border-[rgba(251,113,133,0.4)]">
+        <div className="overlay-card glass max-w-md w-full mx-4 p-8 text-center !border-[rgba(255,82,82,0.4)]">
           <p className="panel-title !text-[var(--down)]">
             {game.failReason === "expired" ? "clock expired" : "drawdown breached"}
           </p>
@@ -117,7 +117,7 @@ export default function GameOverlays() {
     const paid = status === "paid";
     return (
       <div className="overlay">
-        <div className="overlay-card glass max-w-lg w-full mx-4 p-10 text-center !border-[rgba(52,211,153,0.5)] shadow-[0_0_80px_rgba(52,211,153,0.2)]">
+        <div className="overlay-card glass max-w-lg w-full mx-4 p-10 text-center !border-[rgba(0,214,143,0.5)] shadow-[0_0_80px_rgba(0,214,143,0.2)]">
           <p className="panel-title !text-[var(--up)]">
             all three challenges cleared{isFree ? " · free roll" : ""}
           </p>
@@ -131,7 +131,7 @@ export default function GameOverlays() {
             you cleared {RULES.phases.map((p) => p.gainLabel).join(", ")} without ever breaking the
             floor. the firm is sending {fmtUsd(reward)} straight to your Phantom.
           </p>
-          <div className="rounded-xl border border-[rgba(52,211,153,0.3)] px-4 py-3 mt-6">
+          <div className="rounded-xl border border-[rgba(0,214,143,0.3)] px-4 py-3 mt-6">
             <div className="flex items-center justify-center gap-2">
               <span className={paid ? "text-up" : "text-[var(--amber)]"}>
                 {paid ? "✓" : "⏳"}

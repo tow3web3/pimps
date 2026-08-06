@@ -41,16 +41,16 @@ function EquityCurve() {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[180px]" role="img" aria-label="equity curve">
       <defs>
         <linearGradient id="eq-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(34,211,238,0.28)" />
-          <stop offset="100%" stopColor="rgba(34,211,238,0)" />
+          <stop offset="0%" stopColor="rgba(255,176,0,0.28)" />
+          <stop offset="100%" stopColor="rgba(255,176,0,0)" />
         </linearGradient>
       </defs>
       {/* target / start / floor reference lines */}
-      <line x1={PAD} x2={W - PAD} y1={y(target)} y2={y(target)} stroke="rgba(34,211,238,0.4)" strokeDasharray="5 5" strokeWidth="1" />
-      <line x1={PAD} x2={W - PAD} y1={y(RULES.startBalance)} y2={y(RULES.startBalance)} stroke="rgba(140,160,255,0.2)" strokeDasharray="2 5" strokeWidth="1" />
-      <line x1={PAD} x2={W - PAD} y1={y(RULES.failFloor)} y2={y(RULES.failFloor)} stroke="rgba(251,113,133,0.45)" strokeDasharray="5 5" strokeWidth="1" />
-      <text x={W - PAD - 4} y={y(target) - 5} textAnchor="end" className="mono" fontSize="10" fill="rgba(34,211,238,0.8)">target {fmtSol(target, 0)}</text>
-      <text x={W - PAD - 4} y={y(RULES.failFloor) - 5} textAnchor="end" className="mono" fontSize="10" fill="rgba(251,113,133,0.8)">fail {fmtSol(RULES.failFloor, 1)}</text>
+      <line x1={PAD} x2={W - PAD} y1={y(target)} y2={y(target)} stroke="rgba(255,176,0,0.4)" strokeDasharray="5 5" strokeWidth="1" />
+      <line x1={PAD} x2={W - PAD} y1={y(RULES.startBalance)} y2={y(RULES.startBalance)} stroke="rgba(233,231,221,0.2)" strokeDasharray="2 5" strokeWidth="1" />
+      <line x1={PAD} x2={W - PAD} y1={y(RULES.failFloor)} y2={y(RULES.failFloor)} stroke="rgba(255,82,82,0.45)" strokeDasharray="5 5" strokeWidth="1" />
+      <text x={W - PAD - 4} y={y(target) - 5} textAnchor="end" className="mono" fontSize="10" fill="rgba(255,176,0,0.8)">target {fmtSol(target, 0)}</text>
+      <text x={W - PAD - 4} y={y(RULES.failFloor) - 5} textAnchor="end" className="mono" fontSize="10" fill="rgba(255,82,82,0.8)">fail {fmtSol(RULES.failFloor, 1)}</text>
       <path d={area} fill="url(#eq-fill)" />
       <path d={line} fill="none" stroke="var(--cyan)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
@@ -98,17 +98,17 @@ export default function DashboardPage() {
               <div
                 key={p.num}
                 className={`glass glass-hover p-5 relative overflow-hidden ${
-                  st === "live" ? "!border-[rgba(34,211,238,0.4)]" : ""
-                } ${st === "cleared" ? "!border-[rgba(52,211,153,0.35)]" : ""}`}
+                  st === "live" ? "!border-[rgba(255,176,0,0.4)]" : ""
+                } ${st === "cleared" ? "!border-[rgba(0,214,143,0.35)]" : ""}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="panel-title">challenge 0{p.num}</span>
                   <span
                     className={`chip ${
                       st === "cleared"
-                        ? "!text-[var(--up)] !border-[rgba(52,211,153,0.4)]"
+                        ? "!text-[var(--up)] !border-[rgba(0,214,143,0.4)]"
                         : st === "live"
-                          ? "!text-[var(--cyan)] !border-[rgba(34,211,238,0.4)]"
+                          ? "!text-[var(--cyan)] !border-[rgba(255,176,0,0.4)]"
                           : ""
                     }`}
                   >
@@ -151,7 +151,7 @@ export default function DashboardPage() {
         <div className="glass p-5">
           <div className="flex items-center justify-between mb-2">
             <span className="panel-title">equity curve · challenge 0{RULES.phases[game.phase].num}</span>
-            <Link href="/terminal" className="chip hover:!text-[var(--cyan)] hover:!border-[rgba(34,211,238,0.4)] transition-colors">
+            <Link href="/terminal" className="chip hover:!text-[var(--cyan)] hover:!border-[rgba(255,176,0,0.4)] transition-colors">
               open terminal ▸
             </Link>
           </div>
@@ -223,7 +223,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="glass p-5 flex flex-col justify-between !border-[rgba(167,139,250,0.3)]">
+          <div className="glass p-5 flex flex-col justify-between !border-[rgba(255,213,138,0.3)]">
             <div>
               <span className="panel-title !text-[var(--violet)]">
                 the prize{game.tier === "free" ? " · free roll" : ""}
@@ -266,7 +266,7 @@ export default function DashboardPage() {
               <span
                 className={`chip self-start mt-3 ${
                   game.lastPayment.method === "gf"
-                    ? "!text-[var(--violet)] !border-[rgba(167,139,250,0.45)]"
+                    ? "!text-[var(--violet)] !border-[rgba(255,213,138,0.45)]"
                     : ""
                 }`}
               >

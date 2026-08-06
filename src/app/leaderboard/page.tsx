@@ -41,13 +41,13 @@ function Avatar({ row, size = 26 }: { row: Row; size?: number }) {
 function StatusChip({ row }: { row: Row }) {
   if (row.kind === "funded")
     return (
-      <span className="chip !text-[var(--violet)] !border-[rgba(167,139,250,0.45)]">◆ funded</span>
+      <span className="chip !text-[var(--violet)] !border-[rgba(255,213,138,0.45)]">◆ funded</span>
     );
   if (row.status === "cleared")
-    return <span className="chip !text-[var(--up)] !border-[rgba(52,211,153,0.4)]">✓ cleared</span>;
+    return <span className="chip !text-[var(--up)] !border-[rgba(0,214,143,0.4)]">✓ cleared</span>;
   if (row.status === "failed")
-    return <span className="chip !text-[var(--down)] !border-[rgba(251,113,133,0.4)]">✕ failed</span>;
-  return <span className="chip !text-[var(--cyan)] !border-[rgba(34,211,238,0.4)]">● live</span>;
+    return <span className="chip !text-[var(--down)] !border-[rgba(255,82,82,0.4)]">✕ failed</span>;
+  return <span className="chip !text-[var(--cyan)] !border-[rgba(255,176,0,0.4)]">● live</span>;
 }
 
 export default function LeaderboardPage() {
@@ -101,11 +101,11 @@ export default function LeaderboardPage() {
           {board && (
             <div className="flex gap-2 flex-wrap">
               <span className="chip">{board.stats.traders} traders</span>
-              <span className="chip !text-[var(--cyan)] !border-[rgba(34,211,238,0.35)]">
+              <span className="chip !text-[var(--cyan)] !border-[rgba(255,176,0,0.35)]">
                 {board.stats.live} live
               </span>
               {board.stats.funded > 0 && (
-                <span className="chip !text-[var(--violet)] !border-[rgba(167,139,250,0.4)]">
+                <span className="chip !text-[var(--violet)] !border-[rgba(255,213,138,0.4)]">
                   {board.stats.funded} funded
                 </span>
               )}
@@ -141,8 +141,8 @@ export default function LeaderboardPage() {
                 <div
                   key={r.name + i}
                   className={`glass p-3 md:p-4 text-center ${
-                    i === 0 ? "!border-[rgba(251,191,36,0.45)]" : ""
-                  } ${r.isYou ? "!border-[rgba(34,211,238,0.6)]" : ""}`}
+                    i === 0 ? "!border-[rgba(255,176,0,0.45)]" : ""
+                  } ${r.isYou ? "!border-[rgba(255,176,0,0.6)]" : ""}`}
                 >
                   <div className="mono text-[10px] tracking-[0.3em] text-[var(--ink-3)]">
                     {i === 0 ? "◆ 01" : i === 1 ? "02" : "03"}
@@ -188,8 +188,8 @@ export default function LeaderboardPage() {
                       key={r.name + i}
                       className={`border-t border-[var(--border)] ${
                         r.isYou
-                          ? "bg-[rgba(34,211,238,0.07)] border-l-2 border-l-[var(--cyan)]"
-                          : "hover:bg-[rgba(140,160,255,0.03)]"
+                          ? "bg-[rgba(255,176,0,0.07)] border-l-2 border-l-[var(--cyan)]"
+                          : "hover:bg-[rgba(233,231,221,0.03)]"
                       }`}
                     >
                       <td className="px-3 md:px-4 py-2.5 text-[var(--ink-3)]">{i + 1}</td>
