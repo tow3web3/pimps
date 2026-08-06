@@ -11,7 +11,7 @@ import { connectWallet, disconnectWallet, useAuth, useServerSync } from "@/lib/a
 export default function TopBar() {
   useServerSync();
   const game = useGame();
-  const { wallet, connecting } = useAuth();
+  const { wallet, label, connecting } = useAuth();
   const { solUsd, lastTick, source } = useMarket();
   const path = usePathname();
   const feedLive = Date.now() - lastTick < 15_000;
@@ -65,7 +65,7 @@ export default function TopBar() {
           {connecting ? (
             "connecting…"
           ) : wallet ? (
-            `◆ ${wallet.slice(0, 4)}…${wallet.slice(-4)}`
+            `◆ ${label ?? `${wallet.slice(0, 4)}…${wallet.slice(-4)}`}`
           ) : (
             <>
               <span className="sm:hidden">◆ connect</span>

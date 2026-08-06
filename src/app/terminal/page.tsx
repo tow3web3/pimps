@@ -119,7 +119,7 @@ export default function TerminalPage() {
       >
         {tab === "market" && (
           <div className="flex-1 min-h-0 flex flex-col">
-            <TokenList />
+            <TokenList onPick={() => setTab("chart")} />
           </div>
         )}
         {tab === "chart" && <div className="flex-1 min-h-0 flex flex-col">{chartPanel}</div>}

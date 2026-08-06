@@ -61,6 +61,12 @@ export async function GET(req: NextRequest) {
 
   const results: string[] = [];
   for (const w of due) {
+    // an email account that hasn't attached a payout wallet yet: its prize
+    // sits under the opaque em:… id — leave it pending, never try to send
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(w.wallet as string)) {
+      results.push(`#${w.id} waiting — no payout wallet attached yet`);
+      continue;
+    }
     const amountUsd = Number(w.payout_usd);
     if (spent + amountUsd > cap) {
       results.push(`#${w.id} deferred — daily cap $${cap} reached`);

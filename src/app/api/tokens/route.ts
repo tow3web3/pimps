@@ -50,8 +50,12 @@ async function restoreSnapshot() {
     }
     lastSolUsd = snap.solUsd ?? 0;
     if (snap.tokens?.length) {
-      replaceEligible(snap.tokens.map((t) => t.mint));
-      cache = { at: Date.now(), body: { tokens: snap.tokens, solUsd: lastSolUsd } };
+      // the stored snapshot predates whatever floors exist today — re-apply
+      const kept = snap.tokens.filter(
+        (t) => t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd,
+      );
+      replaceEligible(kept.map((t) => t.mint));
+      cache = { at: Date.now(), body: { tokens: kept, solUsd: lastSolUsd } };
     }
   } catch {
     /* cold start with no snapshot — the first sweep fills it */
@@ -82,6 +86,10 @@ async function buildUniverse(): Promise<{ tokens: TokenInfo[]; solUsd: number }>
   }
   const tokens = [...seen.values()]
     .map((x) => x.info)
+    // the floors apply at SERVE time too: the rolling union deliberately
+    // remembers old entries, so a token whose volume died (or a painted cap
+    // that slipped in before the rule) must still fall out of the universe
+    .filter((t) => t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd)
     .sort((x, y) => y.vol24Usd - x.vol24Usd)
     .slice(0, MAX_TOKENS);
   replaceEligible(tokens.map((t) => t.mint));
@@ -208,7 +216,8 @@ async function enrichAndMerge(coins: PfCoin[], maxChunks = 999): Promise<number>
       const liq = p.liquidity?.usd ?? 0;
       const mcap = p.marketCap ?? p.fdv ?? pf?.usd_market_cap ?? 0;
       if (priceSol <= 0 || priceUsd <= 0) continue;
-      if (mcap < RULES.minMcapUsd || liq < 15_000) continue;
+      const vol24 = p.volume?.h24 ?? 0;
+      if (mcap < RULES.minMcapUsd || liq < 15_000 || vol24 < RULES.minVol24Usd) continue;
 
       if (priceSol > 0) lastSolUsd = priceUsd / priceSol;
       const createdAt = p.pairCreatedAt ?? pf?.created_timestamp ?? 0;
@@ -307,7 +316,8 @@ async function sweepGecko(): Promise<void> {
       const reserve = Number(a.reserve_in_usd ?? 0);
       const priceSol = Number(a.base_token_price_native_currency ?? 0);
       const priceUsd = Number(a.base_token_price_usd ?? 0);
-      if (mcap < RULES.minMcapUsd || reserve < 15_000) continue;
+      const vol24 = Number(a.volume_usd?.h24 ?? 0);
+      if (mcap < RULES.minMcapUsd || reserve < 15_000 || vol24 < RULES.minVol24Usd) continue;
       if (priceSol <= 0 || priceUsd <= 0) continue;
 
       const q = Number(a.quote_token_price_usd ?? 0);

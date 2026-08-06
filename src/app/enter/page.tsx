@@ -17,7 +17,7 @@ import {
   type DetectedWallet,
   type RuntimeConfig,
 } from "@/lib/payments";
-import { connectWallet, serverEnter, useAuth } from "@/lib/authClient";
+import { connectWallet, emailLogin, serverEnter, useAuth } from "@/lib/authClient";
 
 type Method = "usdc" | "gf" | "free";
 
@@ -55,6 +55,9 @@ export default function EnterPage() {
   const [cfg, setCfg] = useState<RuntimeConfig | null>(null);
   const [wallets, setWallets] = useState<DetectedWallet[]>([]);
   const [walletId, setWalletId] = useState<string | null>(null);
+  const [emailMode, setEmailMode] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -173,6 +176,25 @@ export default function EnterPage() {
           ? "this wallet doesn't hold enough USDC (plus a little SOL for network fees)"
           : raw;
       setError(friendly);
+      setProcessing(false);
+    }
+  };
+
+  // the no-wallet lane: email account → free seat → terminal
+  const payWithEmail = async () => {
+    if (processing) return;
+    setProcessing(true);
+    setError(null);
+    setLines(["creating your account…"]);
+    try {
+      await emailLogin(email, password);
+      setLines((l) => [...l, `✓ signed in as ${email}`, "registering free roll seat…"]);
+      const r = await serverEnter("free");
+      if (!r.ok && !/already active/i.test(r.error ?? "")) throw new Error(r.error);
+      setLines((l) => [...l, "✓ seat confirmed — welcome to the desk"]);
+      timers.current.push(setTimeout(() => router.push("/terminal"), 800));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "sign-in failed");
       setProcessing(false);
     }
   };
@@ -340,9 +362,9 @@ export default function EnterPage() {
               <ul className="mono text-[11.5px] text-[var(--ink-2)] mt-8 space-y-2 max-w-md mx-auto">
                 <li>▸ {RULES.startBalance} SOL demo stack per phase · live pump.fun prices</li>
                 <li>
-                  ▸ pass all three → $
-                  {method === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple}{" "}
-                  sent straight to your Phantom
+                  ▸ pass all three → you get paid $
+                  {method === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple}
+                  , straight to your wallet
                 </li>
                 <li>▸ a fixed cash prize · a losing run costs this fee, nothing more</li>
               </ul>
@@ -399,6 +421,63 @@ export default function EnterPage() {
                   </p>
                 </div>
               )}
+              {/* the no-wallet alternative — free roll only */}
+              {method === "free" && (
+                <div className="max-w-md mx-auto mt-5">
+                  {!emailMode ? (
+                    <p className="text-center">
+                      <button
+                        onClick={() => setEmailMode(true)}
+                        className="link-und text-[13px] text-[var(--ink-2)]"
+                      >
+                        no wallet? play with email instead <span className="btn-arrow">→</span>
+                      </button>
+                    </p>
+                  ) : (
+                    <div className="border-2 border-[var(--border)] rounded-[4px] p-4 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="mono text-[10px] tracking-[0.2em] uppercase text-[var(--ink-3)]">
+                          email account · no wallet needed
+                        </span>
+                        <button
+                          onClick={() => setEmailMode(false)}
+                          className="mono text-[11px] text-[var(--ink-3)] hover:text-[var(--ink)]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="field !text-[13px]"
+                        autoComplete="email"
+                      />
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="password — 8+ characters"
+                        className="field !text-[13px]"
+                        autoComplete="current-password"
+                      />
+                      <button
+                        onClick={payWithEmail}
+                        disabled={!/@/.test(email) || password.length < 8}
+                        className="btn-ink w-full !py-3 !text-[14px]"
+                      >
+                        Create account & play free <span className="btn-arrow">→</span>
+                      </button>
+                      <p className="mono text-[10px] text-[var(--ink-3)]">
+                        existing email signs you back in · you&apos;ll add a wallet only if you
+                        win, to receive the money
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <p className="mono text-[10px] text-[var(--ink-3)] mt-4 text-center">
                 {live && method !== "free"
                   ? "live payment · phantom will ask you to sign a real usdc transfer on solana"

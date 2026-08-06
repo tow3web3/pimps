@@ -70,6 +70,12 @@ export function ensureSchema(): Promise<void> {
     )`;
     // migration for tables created before the usd column existed
     await sql`ALTER TABLE positions ADD COLUMN IF NOT EXISTS avg_price_usd DOUBLE PRECISION NOT NULL DEFAULT 0`;
+    // email accounts: same users table, the "wallet" key becomes an opaque
+    // account id (em:…) and the payout destination lives in its own column
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS pass_hash TEXT`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS payout_wallet TEXT`;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS users_email_uq ON users(email) WHERE email IS NOT NULL`;
     await sql`CREATE TABLE IF NOT EXISTS trades (
       id BIGSERIAL PRIMARY KEY,
       run_id BIGINT NOT NULL,

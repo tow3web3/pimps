@@ -351,8 +351,8 @@ export default function Landing() {
               </p>
               <div className="display text-[64px] leading-none mt-3">$0</div>
               <p className="text-[14px] text-[var(--ink-2)] mt-4 leading-relaxed">
-                Connect a wallet, no payment. The same three challenges — pass them all and win{" "}
-                <b className="text-[var(--ink)]">${RULES.freeRewardUsd} cash</b>.
+                No payment. The same three challenges — pass them all and{" "}
+                <b className="text-[var(--ink)]">you get paid ${RULES.freeRewardUsd}, cash</b>.
               </p>
               <span className="link-und text-[15px] mt-auto pt-8 self-start">
                 play free <span className="btn-arrow">→</span>
@@ -378,9 +378,10 @@ export default function Landing() {
               <p className="text-[14px] text-[var(--ink-2)] mt-4 leading-relaxed">
                 USDC on Solana, or ${RULES.token.symbol} at −{RULES.token.discount * 100}% —{" "}
                 <b className="text-[var(--ink)]">every ${RULES.token.symbol} entry is burned</b>,
-                so playing shrinks the supply. Pass all three and the firm sends{" "}
-                <b className="text-[var(--heat-deep)]">${funded} to your Phantom</b> —{" "}
-                {RULES.fundedMultiple}x your entry. A losing run costs the fee, nothing more.
+                so playing shrinks the supply. Pass all three and{" "}
+                <b className="text-[var(--heat-deep)]">you get paid ${funded}, straight to your
+                wallet</b> — {RULES.fundedMultiple}x your entry. A losing run costs the fee,
+                nothing more.
               </p>
               <span className="btn-heat !mt-8 mt-auto self-start !text-[15px]">
                 start challenge 01 <span className="btn-arrow">→</span>

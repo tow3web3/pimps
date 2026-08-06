@@ -12,10 +12,12 @@ import { useGame } from "./store";
 
 interface AuthState {
   wallet: string | null;
+  /** human name for the account chip — the email for email accounts */
+  label: string | null;
   connecting: boolean;
 }
 
-export const useAuth = create<AuthState>(() => ({ wallet: null, connecting: false }));
+export const useAuth = create<AuthState>(() => ({ wallet: null, label: null, connecting: false }));
 
 export async function refreshServerState(): Promise<boolean> {
   const res = await fetch("/api/game/state");
@@ -58,7 +60,7 @@ export async function connectWallet(walletId?: string): Promise<string> {
     });
     if (!verify.ok) throw new Error("signature rejected");
 
-    useAuth.setState({ wallet });
+    useAuth.setState({ wallet, label: null });
     await refreshServerState();
     return wallet;
   } finally {
@@ -68,8 +70,33 @@ export async function connectWallet(walletId?: string): Promise<string> {
 
 export async function disconnectWallet() {
   await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-  useAuth.setState({ wallet: null });
+  useAuth.setState({ wallet: null, label: null });
   useGame.getState().leaveServerMode();
+}
+
+/** the no-wallet lane: register-or-login with email + password */
+export async function emailLogin(email: string, password: string): Promise<string> {
+  const res = await fetch("/api/auth/email", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error ?? "sign-in failed");
+  useAuth.setState({ wallet: j.wallet, label: j.label ?? email });
+  await refreshServerState();
+  return j.wallet as string;
+}
+
+/** attach the Solana address that receives prize money (email accounts) */
+export async function attachPayoutWallet(wallet: string): Promise<void> {
+  const res = await fetch("/api/auth/set-wallet", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ wallet }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error ?? "could not save the wallet");
 }
 
 /** seat (or re-seat) through the server — txSig only for live on-chain entries */
@@ -100,7 +127,7 @@ export function useServerSync() {
       try {
         const me = await fetch("/api/auth/me").then((r) => r.json());
         if (stop || !me?.wallet) return;
-        useAuth.setState({ wallet: me.wallet });
+        useAuth.setState({ wallet: me.wallet, label: me.label ?? null });
         await refreshServerState();
       } catch {
         /* guest mode */

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { sessionWallet } from "@/server/auth";
+import { accountLabel, sessionWallet } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json({ wallet: await sessionWallet() });
+  const wallet = await sessionWallet();
+  const label = wallet ? await accountLabel(wallet) : null;
+  return NextResponse.json({ wallet, label });
 }

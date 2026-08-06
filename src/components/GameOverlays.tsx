@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useGame } from "@/lib/store";
+import { attachPayoutWallet, useAuth } from "@/lib/authClient";
 import { entryFeeGfUsd, fundedAccountUsd, RULES } from "@/lib/rules";
 import { fmtSol, fmtUsd } from "@/lib/format";
 
@@ -156,6 +158,7 @@ export default function GameOverlays() {
               </a>
             )}
           </div>
+          <AttachWallet paid={paid} />
           <p className="mono text-[10px] text-[var(--ink-3)] mt-4">
             {RULES.fundedMultiple}x your {fmtUsd(RULES.entryFeeUsd)} entry · payouts are simulated in
             this preview build
@@ -174,4 +177,58 @@ export default function GameOverlays() {
   }
 
   return null;
+}
+
+/** email accounts won without a wallet — this is where the money learns
+    its destination */
+function AttachWallet({ paid }: { paid: boolean }) {
+  const acct = useAuth((s) => s.wallet);
+  const [addr, setAddr] = useState("");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [err, setErr] = useState("");
+
+  if (!acct?.startsWith("em:") || paid) return null;
+
+  const save = async () => {
+    setState("saving");
+    try {
+      await attachPayoutWallet(addr.trim());
+      setState("saved");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "could not save");
+      setState("error");
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-[rgba(255,90,0,0.4)] px-4 py-3 mt-3 text-left">
+      <p className="mono text-[11px] text-[var(--heat-deep)]">
+        you played with an email account — add the Solana wallet that should receive the money
+      </p>
+      {state === "saved" ? (
+        <p className="mono text-[11px] text-up mt-2">
+          ✓ wallet saved — the payout goes there after the safety window
+        </p>
+      ) : (
+        <>
+          <div className="flex gap-2 mt-2">
+            <input
+              value={addr}
+              onChange={(e) => setAddr(e.target.value)}
+              placeholder="your Solana address"
+              className="field !text-[12px] !py-2 flex-1"
+            />
+            <button
+              onClick={save}
+              disabled={state === "saving" || addr.trim().length < 32}
+              className="btn btn-cyan !px-4 shrink-0"
+            >
+              {state === "saving" ? "…" : "save"}
+            </button>
+          </div>
+          {state === "error" && <p className="mono text-[10px] text-down mt-1.5">✕ {err}</p>}
+        </>
+      )}
+    </div>
+  );
 }

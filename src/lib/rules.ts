@@ -30,6 +30,11 @@ export const RULES = {
   /** A token is buyable only if its market cap clears this (USD) */
   minMcapUsd: 100_000,
 
+  /** Anti-fake floor: a $100K+ mcap doing less than this in real 24h volume
+      is a painted cap, not a market — it generates no meaningful fees and
+      its price can be walked around. Filtered out of the universe. */
+  minVol24Usd: 50_000,
+
   /** And only if it was minted through pump.fun (mint address suffix check) */
   pumpSuffix: "pump",
 

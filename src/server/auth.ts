@@ -1,9 +1,81 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import nacl from "tweetnacl";
 import bs58 from "bs58";
 import { cookies } from "next/headers";
 import { ensureSchema, sql, type Row } from "./sql";
 import { BRAND } from "@/lib/rules";
+
+/* ── email accounts — the no-wallet lane ─────────────────────────────────
+   Same sessions, same cookie: the account key is an opaque `em:…` id where
+   a wallet pubkey would be. A real wallet is only needed to RECEIVE money,
+   and can be attached later via setPayoutWallet. */
+
+function hashPassword(pw: string): string {
+  const salt = randomBytes(16).toString("hex");
+  return `${salt}:${scryptSync(pw, salt, 32).toString("hex")}`;
+}
+
+function checkPassword(pw: string, stored: string): boolean {
+  const [salt, hex] = stored.split(":");
+  if (!salt || !hex) return false;
+  try {
+    return timingSafeEqual(scryptSync(pw, salt, 32), Buffer.from(hex, "hex"));
+  } catch {
+    return false;
+  }
+}
+
+/** register-or-login: one endpoint, no separate signup flow to abandon */
+export async function emailSession(
+  email: string,
+  password: string,
+): Promise<{ token: string; acct: string } | { error: string }> {
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT wallet, pass_hash FROM users WHERE email = ${email}
+  `) as Row[];
+
+  let acct: string;
+  if (rows.length > 0) {
+    if (!checkPassword(password, (rows[0].pass_hash as string) ?? "")) {
+      return { error: "wrong password for this email" };
+    }
+    acct = rows[0].wallet as string;
+  } else {
+    acct = `em:${randomBytes(9).toString("hex")}`;
+    await sql`
+      INSERT INTO users(wallet, email, pass_hash, created_at)
+      VALUES (${acct}, ${email}, ${hashPassword(password)}, ${Date.now()})
+    `;
+  }
+
+  const token = randomBytes(32).toString("hex");
+  await sql`
+    INSERT INTO sessions(token, wallet, expires_at)
+    VALUES (${token}, ${acct}, ${Date.now() + SESSION_TTL})
+  `;
+  return { token, acct };
+}
+
+export function isEmailAccount(acct: string): boolean {
+  return acct.startsWith("em:");
+}
+
+/** the display name next to the diamond: email for email accounts */
+export async function accountLabel(acct: string): Promise<string | null> {
+  if (!isEmailAccount(acct)) return null;
+  const rows = (await sql`SELECT email FROM users WHERE wallet = ${acct}`) as Row[];
+  return (rows[0]?.email as string) ?? null;
+}
+
+/** attach/replace the payout destination; re-points pending prize payouts */
+export async function setPayoutWallet(acct: string, wallet: string): Promise<void> {
+  await sql`UPDATE users SET payout_wallet = ${wallet} WHERE wallet = ${acct}`;
+  await sql`
+    UPDATE withdrawals SET wallet = ${wallet}
+    WHERE wallet = ${acct} AND status = 'pending'
+  `;
+}
 
 const SESSION_TTL = 30 * 24 * 3600_000;
 const NONCE_TTL = 5 * 60_000;

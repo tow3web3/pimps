@@ -322,9 +322,12 @@ export async function securePass(wallet: string): Promise<void> {
     const prizeUsd =
       run.tier === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple;
     void solUsd;
+    // email accounts hold the prize under their opaque acct id until they
+    // attach a payout wallet; wallet accounts get paid at their own address
     await sql`
       INSERT INTO withdrawals(wallet, run_id, profit_usd, payout_usd, status, requested_at, payable_at)
-      SELECT ${wallet}, ${run.id}, ${prizeUsd}, ${prizeUsd}, 'pending', ${now}, ${now + 24 * 3600_000}
+      SELECT COALESCE((SELECT payout_wallet FROM users WHERE wallet = ${wallet}), ${wallet}),
+             ${run.id}, ${prizeUsd}, ${prizeUsd}, 'pending', ${now}, ${now + 24 * 3600_000}
       WHERE NOT EXISTS (SELECT 1 FROM withdrawals WHERE run_id = ${run.id})
     `;
   }

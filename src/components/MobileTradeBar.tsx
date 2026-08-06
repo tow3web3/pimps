@@ -38,6 +38,9 @@ export default function MobileTradeBar() {
   const posValueSol = position ? position.qty * token.priceSol : 0;
   const posPnl = position ? posValueSol * (1 - RULES.feeRate) - position.investedSol : 0;
   const sellQty = position ? position.qty * fraction : 0;
+  const sellProceeds = sellQty * token.priceSol * (1 - RULES.feeRate);
+  const proceedsFor = (f: number) =>
+    position ? position.qty * f * token.priceSol * (1 - RULES.feeRate) : 0;
   const belowFloor = token.mcapUsd < RULES.minMcapUsd;
   const canTrade = game.status === "active";
 
@@ -165,21 +168,29 @@ export default function MobileTradeBar() {
                   </div>
                 </>
               ) : (
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[0.25, 0.5, 0.75, 1].map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setFraction(f)}
-                      className={`mono text-[12px] py-2.5 rounded-lg border ${
-                        fraction === f
-                          ? "text-down border-[var(--down)] bg-[rgba(255,82,82,0.1)]"
-                          : "text-[var(--ink-2)] border-[var(--border)]"
-                      }`}
-                    >
-                      {f * 100}%
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[0.25, 0.5, 0.75, 1].map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setFraction(f)}
+                        className={`mono text-[12px] py-2.5 rounded-lg border ${
+                          fraction === f
+                            ? "text-down border-[var(--down)] bg-[rgba(255,82,82,0.1)]"
+                            : "text-[var(--ink-2)] border-[var(--border)]"
+                        }`}
+                      >
+                        {f * 100}%
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mono text-[11px] text-[var(--ink-2)] flex justify-between">
+                    <span>
+                      ≈ you receive <b className="text-[var(--ink)]">{fmtSol(sellProceeds, 3)} SOL</b>
+                    </span>
+                    <span>{solUsd ? fmtUsd(sellProceeds * solUsd) : ""}</span>
+                  </div>
+                </>
               )}
 
               <div className="flex flex-wrap gap-1.5">
@@ -244,9 +255,12 @@ export default function MobileTradeBar() {
                       key={f}
                       onClick={() => doSell(f)}
                       disabled={busy || !canTrade}
-                      className="btn btn-sell flex-1 !px-0 !py-3 !text-[12px]"
+                      className="btn btn-sell flex-1 !px-0 !py-2 !text-[12px] flex flex-col items-center gap-0"
                     >
-                      {f === 1 ? "ALL" : `${f * 100}%`}
+                      <span>{f === 1 ? "ALL" : `${f * 100}%`}</span>
+                      <span className="text-[9px] opacity-80">
+                        {fmtSol(proceedsFor(f), 2)} SOL
+                      </span>
                     </button>
                   ))}
                   <button

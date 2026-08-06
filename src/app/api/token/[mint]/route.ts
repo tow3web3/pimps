@@ -80,6 +80,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ mint: stri
     totalSupply: pf.total_supply ? Number(pf.total_supply) / 1e6 : null,
     replyCount: pf.reply_count ?? null,
     pairAddress: pf.pump_swap_pool ?? dsPair?.pairAddress ?? null,
+    // the pair DEXSCREENER charts — their embed only renders their own pairs,
+    // so this (not any pool we know from elsewhere) is what the iframe gets
+    chartPair: dsPair?.pairAddress ?? null,
     socials: normalizeSocials(pf, dsPair?.info ?? {}),
     graduated: !!pf.complete,
   };

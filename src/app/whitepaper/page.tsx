@@ -185,6 +185,7 @@ export default async function Whitepaper() {
             <Row k="provenance" v="listed in pump.fun's own registry" />
             <Row k="market cap" v={`≥ $${(RULES.minMcapUsd / 1000).toFixed(0)}K`} />
             <Row k="pool liquidity" v="≥ $15K in the deepest SOL pool" />
+            <Row k="real 24h volume" v="≥ $50K — a painted market cap with no volume is excluded" />
             <Row k="quote pricing" v="read from the single deepest pool" />
           </div>
           <p className="mt-4">

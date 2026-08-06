@@ -267,8 +267,11 @@ export default function TradePanel() {
 
                 <div className="space-y-1.5 mono text-[11px] text-[var(--ink-2)]">
                   <div className="flex justify-between">
-                    <span>est. proceeds</span>
-                    <span className="text-[var(--ink)]">{fmtSol(sellProceeds, 3)} SOL</span>
+                    <span>you receive · {(fraction * 100).toFixed(0)}%</span>
+                    <span className="text-[var(--ink)]">
+                      {fmtSol(sellProceeds, 3)} SOL
+                      {solUsd > 0 ? ` · ${fmtUsd(sellProceeds * solUsd)}` : ""}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>fee · {(RULES.feeRate * 100).toFixed(0)}%</span>

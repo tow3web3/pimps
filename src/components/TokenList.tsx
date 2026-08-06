@@ -50,7 +50,7 @@ function fmtAge(h?: number): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-export default function TokenList() {
+export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
   const { tokens, universe, selected, select, universeLoaded } = useMarket();
   const positions = useGame((s) => s.positions);
   const [q, setQ] = useState("");
@@ -91,7 +91,7 @@ export default function TokenList() {
           <span className="panel-title">
             universe <span className="text-[var(--cyan)]">{rows.length}</span>
           </span>
-          <span className="chip">pump.fun ≥ {fmtCompact(RULES.minMcapUsd)}</span>
+          <span className="chip">pump.fun · mc ≥ {fmtCompact(RULES.minMcapUsd)} · real vol</span>
         </div>
         <input
           value={q}
@@ -153,7 +153,10 @@ export default function TokenList() {
           return (
             <button
               key={t.mint}
-              onClick={() => select(t.mint)}
+              onClick={() => {
+                select(t.mint);
+                onPick?.();
+              }}
               className={`token-row w-full text-left px-3 py-2.5 flex items-center gap-2.5 ${
                 selected === t.mint ? "selected" : ""
               }`}
