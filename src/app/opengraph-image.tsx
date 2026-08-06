@@ -13,7 +13,7 @@ export default function OG() {
   const chips = [
     RULES.phases.map((p) => p.gainLabel).join("  ·  "),
     `max ${RULES.maxExposure * 100}% / token`,
-    `${RULES.profitSplit * 100}/${100 - RULES.profitSplit * 100} split`,
+    `$${fundedAccountUsd()} prize`,
   ];
 
   return new ImageResponse(

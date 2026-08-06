@@ -233,8 +233,8 @@ export default function DashboardPage() {
               </div>
               <p className="mono text-[11px] text-[var(--ink-2)] mt-2 leading-relaxed">
                 {game.tier === "free"
-                  ? `free-roll funded account · $0 entry · ${RULES.profitSplit * 100}/${100 - RULES.profitSplit * 100} profit split in your favor.`
-                  : `funded account · ${RULES.fundedMultiple}x the ${fmtUsd(RULES.entryFeeUsd)} entry · ${RULES.profitSplit * 100}/${100 - RULES.profitSplit * 100} profit split in your favor.`}
+                  ? "free roll · clear all three and $50 is sent straight to your Phantom."
+                  : `clear all three and ${fmtUsd(fundedAccountUsd())} is sent straight to your Phantom — ${RULES.fundedMultiple}x your entry, no strings.`}
               </p>
             </div>
             <p className="mono text-[10px] text-[var(--ink-3)] mt-4">
