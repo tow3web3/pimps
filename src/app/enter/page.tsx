@@ -147,14 +147,23 @@ export default function EnterPage() {
     if (processing) return;
     setProcessing(true);
     setLines([]);
-    // a wallet is REQUIRED only when real money must move (treasury configured
-    // and a paid lane). Otherwise: server account if already signed in, else
-    // the zero-friction local preview — never a dead end.
     const signedIn = useAuth.getState().wallet !== null;
     const needsRealPayment = live && method !== "free";
-    if (needsRealPayment) void runServer(true);
-    else if (signedIn || getProvider() !== null) void runServer(false);
-    else runSimulated(method);
+
+    if (needsRealPayment) {
+      // real money must move — a wallet is required here
+      void runServer(true);
+    } else if (method === "free") {
+      // FREE never prompts a wallet: if you're already signed in it lands on
+      // the server (counts on the board); otherwise it plays instantly in
+      // preview. No connect popup, so a broken wallet extension can't block it.
+      if (signedIn) void runServer(false);
+      else runSimulated("free");
+    } else if (signedIn) {
+      void runServer(false);
+    } else {
+      runSimulated(method);
+    }
   };
 
   // in live mode the GF lane waits for the token to exist on-chain

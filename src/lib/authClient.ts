@@ -7,7 +7,7 @@
 import { useEffect, useRef } from "react";
 import { create } from "zustand";
 import bs58 from "bs58";
-import { getProvider } from "./payments";
+import { getProvider, withWalletTimeout } from "./payments";
 import { useGame } from "./store";
 
 interface AuthState {
@@ -29,7 +29,9 @@ export async function connectWallet(): Promise<string> {
   if (!provider) throw new Error("no Solana wallet found — install Phantom");
   useAuth.setState({ connecting: true });
   try {
-    const { publicKey } = await provider.connect();
+    // 60s to approve the connect popup; if the extension's bridge is dead it
+    // rejects here instead of hanging the whole page forever
+    const { publicKey } = await withWalletTimeout(provider.connect(), 60_000, "connect");
     const wallet = publicKey.toBase58();
 
     const nonceRes = await fetch("/api/auth/nonce", {
@@ -40,7 +42,14 @@ export async function connectWallet(): Promise<string> {
     const { message } = await nonceRes.json();
     if (!message) throw new Error("could not start login");
 
-    const signed = await provider.signMessage!(new TextEncoder().encode(message), "utf8");
+    if (typeof provider.signMessage !== "function") {
+      throw new Error("this wallet cannot sign messages");
+    }
+    const signed = await withWalletTimeout(
+      provider.signMessage(new TextEncoder().encode(message), "utf8"),
+      60_000,
+      "signature",
+    );
     const verify = await fetch("/api/auth/verify", {
       method: "POST",
       headers: { "content-type": "application/json" },

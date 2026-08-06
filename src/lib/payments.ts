@@ -54,9 +54,28 @@ export function getProvider(): PhantomProvider | null {
   if (typeof window === "undefined") return null;
   const w = window as unknown as {
     phantom?: { solana?: PhantomProvider };
-    solana?: PhantomProvider;
+    solana?: PhantomProvider & { isPhantom?: boolean };
+    solflare?: PhantomProvider;
   };
-  return w.phantom?.solana ?? w.solana ?? null;
+  // Phantom's own namespace is never overwritten by other wallets, so prefer it.
+  // Fall back to window.solana only if it can actually sign a message — a
+  // multi-chain aggregator that hijacked window.solana without a working bridge
+  // (the "IN_PAGE_CHANNEL" errors) is worse than nothing.
+  const candidates = [w.phantom?.solana, w.solflare, w.solana];
+  for (const p of candidates) {
+    if (p && typeof p.connect === "function" && typeof p.signMessage === "function") return p;
+  }
+  return null;
+}
+
+/** race any wallet call against a timeout so a broken extension can't hang us */
+export function withWalletTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${what} timed out — check your wallet extension`)), ms),
+    ),
+  ]);
 }
 
 /**
