@@ -10,16 +10,30 @@ const SELF_RETENTION_MS = 48 * 3600_000;
 
 /** called by the price feed — one tick becomes/extends the current 1m candle */
 export async function recordTick(pool: string, priceUsd: number): Promise<void> {
-  if (!pool || priceUsd <= 0) return;
+  return recordTicks([{ pool, priceUsd }]);
+}
+
+/** the whole hot set in ONE statement — at a 1s refresh cadence, 30 round
+    trips per refresh would cost more time than the refresh window itself */
+export async function recordTicks(
+  ticks: Array<{ pool: string; priceUsd: number }>,
+): Promise<void> {
   const bucket = Math.floor(Date.now() / 60_000) * 60;
-  await sql`
-    INSERT INTO candles(pool, tf_key, time, open, high, low, close, volume)
-    VALUES (${pool}, 'self:1m', ${bucket}, ${priceUsd}, ${priceUsd}, ${priceUsd}, ${priceUsd}, 0)
-    ON CONFLICT(pool, tf_key, time) DO UPDATE SET
-      high = GREATEST(candles.high, excluded.high),
-      low = LEAST(candles.low, excluded.low),
-      close = excluded.close
-  `;
+  const rows = ticks.filter((t) => t.pool && t.priceUsd > 0);
+  if (rows.length === 0) return;
+  const values = rows
+    .map(
+      (t) =>
+        `('${t.pool.replace(/'/g, "")}','self:1m',${bucket},${t.priceUsd},${t.priceUsd},${t.priceUsd},${t.priceUsd},0)`,
+    )
+    .join(",");
+  await sql.query(
+    `INSERT INTO candles(pool, tf_key, time, open, high, low, close, volume) VALUES ${values}
+     ON CONFLICT(pool, tf_key, time) DO UPDATE SET
+       high = GREATEST(candles.high, EXCLUDED.high),
+       low = LEAST(candles.low, EXCLUDED.low),
+       close = EXCLUDED.close`,
+  );
 }
 
 export async function storeFetched(

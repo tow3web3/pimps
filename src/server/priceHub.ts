@@ -4,12 +4,15 @@
 // pays for the refresh. 1 visitor or 1000, on 1 instance or 50: same API cost.
 
 import { claimLock, ensureSchema, sql, type Row } from "./sql";
-import { recordTick } from "./candles";
+import { recordTicks } from "./candles";
 import type { TokenInfo } from "@/lib/types";
 
 const WSOL = "So11111111111111111111111111111111111111112";
 const MAX_HOT = 30; // DexScreener batch limit
-const STALE_MS = 3_000;
+// 1s window: this is a trading app — DexScreener (free) drives every tick,
+// the paid Helius overlay throttles itself separately below
+const STALE_MS = 1_000;
+const HELIUS_EVERY_MS = 2_500;
 
 interface DsPair {
   pairAddress: string;
@@ -106,7 +109,12 @@ async function refresh(): Promise<void> {
     });
   }
 
-  const h = await heliusOverlay(fresh.map((t) => t.mint));
+  // Helius rides along only every HELIUS_EVERY_MS — the 1s heartbeat is the
+  // free feed, the paid overlay corrects it without multiplying credits
+  const heliusDue =
+    Date.now() - Number((await sql`SELECT value FROM kv WHERE key = 'px:helius_at'`)[0]?.value ?? 0) >
+    HELIUS_EVERY_MS;
+  const h = heliusDue ? await heliusOverlay(fresh.map((t) => t.mint)) : null;
   if (h) {
     solUsd = h.solUsd;
     for (const t of fresh) {
@@ -119,22 +127,35 @@ async function refresh(): Promise<void> {
   }
 
   const now = Date.now();
-  for (const t of fresh) {
-    await sql`
-      INSERT INTO marks(pair, mint, data, updated_at)
-      VALUES (${t.pairAddress}, ${t.mint}, ${JSON.stringify(t)}, ${now})
-      ON CONFLICT(pair) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
-    `;
-  }
-  await sql`
-    INSERT INTO kv(key, value, updated_at) VALUES ('px:solUsd', ${String(solUsd)}, ${now})
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-  `;
-  await sql`
-    INSERT INTO kv(key, value, updated_at) VALUES ('px:source', ${h ? "helius" : "dexscreener"}, ${now})
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-  `;
-  await Promise.all(fresh.map((t) => recordTick(t.pairAddress, t.priceUsd).catch(() => {})));
+  // ONE statement for the whole hot set — 30 sequential upserts at a 1s
+  // cadence would spend the refresh window on round trips to Neon
+  const markValues = fresh
+    .map(
+      (t) =>
+        `('${t.pairAddress.replace(/'/g, "")}','${t.mint.replace(/'/g, "")}','${JSON.stringify(t).replace(/'/g, "''")}',${now})`,
+    )
+    .join(",");
+  await sql.query(
+    `INSERT INTO marks(pair, mint, data, updated_at) VALUES ${markValues}
+     ON CONFLICT(pair) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at`,
+  );
+  const kvRows = [
+    ["px:solUsd", String(solUsd)],
+    // stamp only on success (a failure stays due and retries next second);
+    // update the source label only on an actual attempt so it doesn't flap
+    // between overlay windows
+    ...(h ? [["px:helius_at", String(now)]] : []),
+    ...(heliusDue ? [["px:source", h ? "helius" : "dexscreener"]] : []),
+  ]
+    .map(([k, v]) => `('${k}','${String(v).replace(/'/g, "''")}',${now})`)
+    .join(",");
+  await sql.query(
+    `INSERT INTO kv(key, value, updated_at) VALUES ${kvRows}
+     ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`,
+  );
+  await recordTicks(fresh.map((t) => ({ pool: t.pairAddress, priceUsd: t.priceUsd }))).catch(
+    () => {},
+  );
 }
 
 /** register interest, refresh if we win the lock, and return what we know */
