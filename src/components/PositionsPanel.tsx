@@ -84,7 +84,11 @@ export default function PositionsPanel() {
                           {fmtQty(p.qty)}
                         </td>
                         <td className="px-2 py-2.5 text-right text-[var(--ink-2)]">
-                          {solUsd > 0 ? `$${fmtMicro(p.avgPriceSol * solUsd)}` : "—"}
+                          {p.avgPriceUsd > 0
+                            ? `$${fmtMicro(p.avgPriceUsd)}`
+                            : solUsd > 0
+                              ? `$${fmtMicro(p.avgPriceSol * solUsd)}`
+                              : "—"}
                         </td>
                         <td
                           className={`px-2 py-2.5 text-right ${

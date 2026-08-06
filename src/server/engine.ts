@@ -39,6 +39,7 @@ export interface PosRow {
   qty: number;
   invested_sol: number;
   avg_price_sol: number;
+  avg_price_usd: number;
 }
 
 const toRun = (r: Row): RunRow => ({
@@ -69,6 +70,7 @@ const toPos = (r: Row): PosRow => ({
   qty: Number(r.qty),
   invested_sol: Number(r.invested_sol),
   avg_price_sol: Number(r.avg_price_sol),
+  avg_price_usd: Number(r.avg_price_usd ?? 0),
 });
 
 async function positionsOf(runId: number): Promise<PosRow[]> {
@@ -209,14 +211,21 @@ export async function buy(wallet: string, mint: string, solAmount: number): Prom
   `) as Row[];
   if (debited.length === 0) throw new Error("insufficient balance");
 
+  // avg_price_usd is the qty-weighted USD FILL price — pinned at buy time so
+  // the entry marker never drifts with SOL/USD afterwards. Legacy rows
+  // (usd = 0) seed from their sol average at today's ratio, once.
   await sql`
-    INSERT INTO positions(run_id, mint, pair_address, symbol, name, image_url, qty, invested_sol, avg_price_sol)
+    INSERT INTO positions(run_id, mint, pair_address, symbol, name, image_url, qty, invested_sol, avg_price_sol, avg_price_usd)
     VALUES (${run.id}, ${mint}, ${mark.pairAddress}, ${mark.symbol}, ${mark.name},
-            ${mark.imageUrl ?? null}, ${qty}, ${invested}, ${mark.priceSol})
+            ${mark.imageUrl ?? null}, ${qty}, ${invested}, ${mark.priceSol}, ${mark.priceUsd})
     ON CONFLICT(run_id, mint) DO UPDATE SET
       qty = positions.qty + ${qty},
       invested_sol = positions.invested_sol + ${invested},
-      avg_price_sol = (positions.invested_sol + ${invested}) / (positions.qty + ${qty})
+      avg_price_sol = (positions.invested_sol + ${invested}) / (positions.qty + ${qty}),
+      avg_price_usd = (
+        COALESCE(NULLIF(positions.avg_price_usd, 0), positions.avg_price_sol * ${mark.priceUsd / mark.priceSol}) * positions.qty
+        + ${mark.priceUsd * qty}
+      ) / (positions.qty + ${qty})
   `;
   await recordTrade(run, "buy", mark, qty, solAmount, feeSol, null);
 }
@@ -460,6 +469,7 @@ export async function clientState(wallet: string) {
       qty: p.qty,
       investedSol: p.invested_sol,
       avgPriceSol: p.avg_price_sol,
+      avgPriceUsd: p.avg_price_usd,
     })),
     trades: tradeRows.map((t) => ({
       id: String(t.id),

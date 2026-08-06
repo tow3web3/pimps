@@ -216,6 +216,11 @@ export const useGame = create<GameState>()(
                     qty: p.qty + qty,
                     investedSol: p.investedSol + invested,
                     avgPriceSol: (p.investedSol + invested) / (p.qty + qty),
+                    avgPriceUsd:
+                      ((p.avgPriceUsd || p.avgPriceSol * (token.priceUsd / token.priceSol)) *
+                        p.qty +
+                        token.priceUsd * qty) /
+                      (p.qty + qty),
                     imageUrl: p.imageUrl ?? token.imageUrl,
                   }
                 : p,
@@ -231,6 +236,7 @@ export const useGame = create<GameState>()(
                 qty,
                 investedSol: invested,
                 avgPriceSol: token.priceSol,
+                avgPriceUsd: token.priceUsd,
               },
             ];
 

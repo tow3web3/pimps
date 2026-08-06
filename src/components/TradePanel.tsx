@@ -209,7 +209,11 @@ export default function TradePanel() {
                   <div className="flex justify-between">
                     <span>avg entry</span>
                     <span className="text-[var(--ink)]">
-                      {solUsd > 0 ? `$${fmtMicro(position.avgPriceSol * solUsd)}` : "—"}
+                      {position.avgPriceUsd > 0
+                        ? `$${fmtMicro(position.avgPriceUsd)}`
+                        : solUsd > 0
+                          ? `$${fmtMicro(position.avgPriceSol * solUsd)}`
+                          : "—"}
                     </span>
                   </div>
                   <div className="flex justify-between">

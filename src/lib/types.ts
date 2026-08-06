@@ -41,6 +41,9 @@ export interface Position {
   investedSol: number;
   /** volume-weighted average entry price, SOL per token */
   avgPriceSol: number;
+  /** qty-weighted USD price AT FILL TIME — the honest entry marker, immune
+      to SOL/USD drifting after the buy */
+  avgPriceUsd: number;
 }
 
 export interface TradeRec {

@@ -28,12 +28,14 @@ export default function TerminalPage() {
   const [tab, setTab] = useState<Tab>("chart");
   useEffect(() => setMounted(true), []);
 
-  // the entry line the chart draws, in USD
+  // the entry line the chart draws: the USD price AT FILL TIME, pinned —
+  // converting the sol average at today's ratio would drift with SOL/USD
   const avgEntryUsd = useMemo(() => {
     if (!token) return undefined;
     const p = positions.find((x) => x.mint === token.mint);
-    if (!p || token.priceSol <= 0) return undefined;
-    return p.avgPriceSol * (token.priceUsd / token.priceSol);
+    if (!p) return undefined;
+    if (p.avgPriceUsd > 0) return p.avgPriceUsd;
+    return token.priceSol > 0 ? p.avgPriceSol * (token.priceUsd / token.priceSol) : undefined;
   }, [token, positions]);
 
   if (!mounted) {

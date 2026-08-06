@@ -65,8 +65,11 @@ export function ensureSchema(): Promise<void> {
       qty DOUBLE PRECISION NOT NULL,
       invested_sol DOUBLE PRECISION NOT NULL,
       avg_price_sol DOUBLE PRECISION NOT NULL,
+      avg_price_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
       PRIMARY KEY (run_id, mint)
     )`;
+    // migration for tables created before the usd column existed
+    await sql`ALTER TABLE positions ADD COLUMN IF NOT EXISTS avg_price_usd DOUBLE PRECISION NOT NULL DEFAULT 0`;
     await sql`CREATE TABLE IF NOT EXISTS trades (
       id BIGSERIAL PRIMARY KEY,
       run_id BIGINT NOT NULL,

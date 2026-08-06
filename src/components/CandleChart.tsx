@@ -50,11 +50,14 @@ export default function CandleChart({
   const fellBackRef = useRef<Set<string>>(new Set());
   const [tfIdx, setTfIdx] = useState(0); // 5s default — this is a trading app
   const [empty, setEmpty] = useState(false);
+  // full DexScreener chart, embedded — their candles exist only as an iframe,
+  // so this is a view toggle, not a data source we could draw on
+  const [dex, setDex] = useState(false);
 
   // build the chart + load candles on pool / timeframe change
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || !pairAddress) return;
+    if (!el || !pairAddress || dex) return;
     let disposed = false;
 
     const chart = createChart(el, {
@@ -198,7 +201,7 @@ export default function CandleChart({
       volRef.current = null;
       lastBarRef.current = null;
     };
-  }, [pairAddress, tfIdx]);
+  }, [pairAddress, tfIdx, dex]);
 
   // "your entry" price line — the single most useful marker on the chart
   useEffect(() => {
@@ -292,9 +295,12 @@ export default function CandleChart({
         {TIMEFRAMES.map((t, i) => (
           <button
             key={t.label}
-            onClick={() => setTfIdx(i)}
+            onClick={() => {
+              setDex(false);
+              setTfIdx(i);
+            }}
             className={`mono text-[11px] px-2.5 py-1 rounded-md transition-colors ${
-              i === tfIdx
+              i === tfIdx && !dex
                 ? "text-[var(--cyan)] bg-[rgba(255,90,0,0.1)] border border-[rgba(255,90,0,0.35)]"
                 : "text-[var(--ink-3)] hover:text-[var(--ink-2)] border border-transparent"
             }`}
@@ -302,16 +308,39 @@ export default function CandleChart({
             {t.label}
           </button>
         ))}
-        <span className="ml-auto panel-title pr-2">live · usd</span>
+        <button
+          onClick={() => setDex((d) => !d)}
+          title="full DexScreener chart"
+          className={`mono text-[11px] px-2.5 py-1 rounded-md transition-colors ${
+            dex
+              ? "text-[var(--cyan)] bg-[rgba(255,90,0,0.1)] border border-[rgba(255,90,0,0.35)]"
+              : "text-[var(--ink-3)] hover:text-[var(--ink-2)] border border-transparent"
+          }`}
+        >
+          DEX
+        </button>
+        <span className="ml-auto panel-title pr-2">{dex ? "dexscreener" : "live · usd"}</span>
       </div>
       <div className="relative flex-1 min-h-0">
-        <div ref={containerRef} className="absolute inset-0" />
-        {empty && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="mono text-xs text-[var(--ink-3)] animate-pulse">
-              waiting for the first live tick…
-            </span>
-          </div>
+        {dex ? (
+          <iframe
+            key={pairAddress}
+            src={`https://dexscreener.com/solana/${pairAddress}?embed=1&theme=light&chartTheme=light&trades=0&info=0`}
+            className="absolute inset-0 w-full h-full border-0"
+            allow="clipboard-write"
+            allowFullScreen
+          />
+        ) : (
+          <>
+            <div ref={containerRef} className="absolute inset-0" />
+            {empty && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="mono text-xs text-[var(--ink-3)] animate-pulse">
+                  waiting for the first live tick…
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
