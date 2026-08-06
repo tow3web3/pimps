@@ -1,0 +1,10 @@
+import puppeteer from "puppeteer-core";
+const [S, CHROME] = process.argv.slice(2);
+const b = await puppeteer.launch({ executablePath: CHROME, headless: "new" });
+const p = await b.newPage();
+await p.setViewport({ width: 1200, height: 240 });
+await p.goto("http://localhost:3333/", { waitUntil: "networkidle2", timeout: 45000 }).catch(() => {});
+await new Promise((r) => setTimeout(r, 2500));
+await p.screenshot({ path: `${S}/header-logo.png`, clip: { x: 0, y: 0, width: 1200, height: 130 } });
+await b.close();
+console.log("done");

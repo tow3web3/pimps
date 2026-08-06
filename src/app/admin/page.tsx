@@ -66,7 +66,7 @@ export default function AdminPage() {
     <div className="min-h-dvh">
       <header className="flex items-center justify-between px-6 h-16 border-b border-[var(--border)]">
         <Link href="/" className="flex items-center gap-2">
-          <span className="w-2 h-2 rotate-45 bg-[var(--cyan)]" />
+          <img src="/brand/mark.png" alt="" width={20} height={20} className="shrink-0 -mt-0.5" />
           <span className="mono font-bold tracking-[0.3em] text-sm">{BRAND}</span>
         </Link>
         <span className="chip !text-[var(--amber)] !border-[rgba(255,90,0,0.4)]">

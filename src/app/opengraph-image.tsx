@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { BRAND, fundedAccountUsd, RULES } from "@/lib/rules";
+import { OG_LOGO } from "./og-logo";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -56,6 +57,7 @@ export default async function OG() {
             flex: 1,
             display: "flex",
             flexDirection: "column",
+            position: "relative",
             margin: 26,
             marginBottom: 0,
             border: "4px solid #131110",
@@ -71,16 +73,9 @@ export default async function OG() {
               justifyContent: "space-between",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <div
-                style={{
-                  width: 22,
-                  height: 22,
-                  background: "#ff5200",
-                  border: "3px solid #131110",
-                  transform: "rotate(45deg)",
-                }}
-              />
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={OG_LOGO} alt="" width={46} height={46} />
               <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1 }}>{BRAND}</div>
             </div>
             <div
@@ -146,12 +141,25 @@ export default async function OG() {
               color: "#575349",
               marginTop: 34,
               lineHeight: 1.45,
-              maxWidth: 980,
+              maxWidth: 820,
               display: "flex",
             }}
           >
             {pitch}
           </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={OG_LOGO}
+            alt=""
+            width={225}
+            height={225}
+            style={{
+              position: "absolute",
+              right: 40,
+              bottom: 26,
+              transform: "rotate(8deg)",
+            }}
+          />
         </div>
 
         <div

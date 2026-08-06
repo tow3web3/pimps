@@ -305,7 +305,7 @@ export default function EnterPage() {
     <div className="paper min-h-dvh flex flex-col">
       <header className="flex items-center justify-between px-5 md:px-10 h-16 border-b-2 border-[var(--ink)]">
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="w-2.5 h-2.5 rotate-45 bg-[var(--heat)] border border-[var(--ink)]" />
+          <img src="/brand/mark.png" alt="" width={22} height={22} className="shrink-0 -mt-0.5" />
           <span className="display text-lg tracking-tight">{BRAND}</span>
         </Link>
         <Link href="/terminal" className="link-und text-[14px]">
