@@ -66,13 +66,11 @@ export default function DashboardPage() {
   const stats = useMemo(() => {
     const sells = game.trades.filter((t) => t.pnlSol !== undefined);
     const wins = sells.filter((t) => (t.pnlSol ?? 0) > 0);
-    const fees = game.trades.reduce((a, t) => a + t.feeSol, 0);
     const best = sells.length ? Math.max(...sells.map((t) => t.pnlSol ?? 0)) : 0;
     const worst = sells.length ? Math.min(...sells.map((t) => t.pnlSol ?? 0)) : 0;
     return {
       fills: game.trades.length,
       winRate: sells.length ? (wins.length / sells.length) * 100 : null,
-      fees,
       best,
       worst,
     };
@@ -161,7 +159,7 @@ export default function DashboardPage() {
         </div>
 
         {/* session stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "fills", value: String(stats.fills) },
             {
@@ -178,7 +176,6 @@ export default function DashboardPage() {
               value: `${fmtSignedSol(stats.worst)} SOL`,
               cls: stats.worst < 0 ? "text-down" : "",
             },
-            { label: "fees paid", value: `${fmtSol(stats.fees, 3)} SOL` },
           ].map((s) => (
             <div key={s.label} className="glass p-4">
               <div className="panel-title">{s.label}</div>
