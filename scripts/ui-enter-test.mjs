@@ -14,12 +14,21 @@ await p.setViewport({ width: 1500, height: 950 });
 await p.exposeFunction("__walletSign", (msg) =>
   Array.from(nacl.sign.detached(new TextEncoder().encode(msg), kp.secretKey)),
 );
-await p.evaluateOnNewDocument((wallet) => {
+await p.evaluateOnNewDocument((wallet, pkBytes) => {
+  // enough of a PublicKey for ATA derivation: base58 + raw bytes
+  const bytes = new Uint8Array(pkBytes);
+  const fakeKey = {
+    toBase58: () => wallet,
+    toString: () => wallet,
+    toBytes: () => bytes,
+    toBuffer: () => bytes,
+    equals: (o) => o?.toBase58?.() === wallet,
+  };
   const provider = {
     isPhantom: true,
     publicKey: null,
     connect: async () => {
-      provider.publicKey = { toBase58: () => wallet };
+      provider.publicKey = fakeKey;
       return { publicKey: provider.publicKey };
     },
     signMessage: async (bytes) => {
@@ -32,7 +41,7 @@ await p.evaluateOnNewDocument((wallet) => {
     },
   };
   window.phantom = { solana: provider };
-}, wallet);
+}, wallet, Array.from(kp.publicKey));
 
 const logs = [];
 p.on("console", (m) => { if (m.type() === "error") logs.push("console: " + m.text().slice(0, 140)); });
@@ -68,6 +77,8 @@ for (let i = 0; i < 20; i++) {
 const receipt = await p.evaluate(() =>
   [...document.querySelectorAll("main p")].map((x) => x.textContent.trim()).filter((t) => t.startsWith(">")).join(" | "),
 ).catch(() => "");
+const bannerText = await p.evaluate(() => document.querySelector("main .border-\\[var\\(--down\\)\\]")?.textContent?.trim() ?? "");
+console.log("banner:", bannerText.slice(0, 160) || "(none)");
 console.log("final url:", p.url());
 console.log("receipt:", receipt || "(none)");
 console.log("errors:", logs.slice(0, 6).join("\n") || "(none)");

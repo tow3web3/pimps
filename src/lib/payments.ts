@@ -88,6 +88,7 @@ async function transferToTreasury(
     decimals: number;
     amount: number; // in whole tokens
     label: string;
+    symbol: string;
     treasury: string;
   },
   onStep: (line: string) => void,
@@ -106,6 +107,27 @@ async function transferToTreasury(
   const to = getAssociatedTokenAddressSync(opts.mint, treasury);
   const raw = BigInt(Math.round(opts.amount * 10 ** opts.decimals));
 
+  // check the money is there BEFORE popping the wallet — approving a transfer
+  // that cannot settle strands the user on a doomed confirmation
+  onStep("checking balance…");
+  let balance = 0;
+  try {
+    balance = (await conn.getTokenAccountBalance(from)).value.uiAmount ?? 0;
+  } catch {
+    balance = 0; // no token account = zero balance
+  }
+  if (balance < opts.amount) {
+    throw new Error(
+      `not enough ${opts.symbol} in this wallet — it holds ${balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${opts.symbol}, the entry needs ${opts.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+    );
+  }
+  const lamports = await conn.getBalance(publicKey).catch(() => 0);
+  if (lamports < 1_500_000) {
+    throw new Error(
+      "this wallet has no SOL for the network fee — add ~0.01 SOL and retry",
+    );
+  }
+
   onStep(`building transfer · ${opts.label}…`);
   const tx = new Transaction().add(
     createAssociatedTokenAccountIdempotentInstruction(publicKey, to, treasury, opts.mint),
@@ -119,12 +141,22 @@ async function transferToTreasury(
   const { signature } = await provider.signAndSendTransaction(tx);
   onStep(`tx ${signature.slice(0, 8)}… sent — confirming on-chain…`);
 
-  const res = await conn.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    "confirmed",
-  );
-  if (res.value.err) throw new Error("transaction failed on-chain");
-  return signature;
+  // poll over HTTP: confirmTransaction subscribes via websocket, which our
+  // /api/rpc proxy doesn't speak — it would hang until blockheight expiry
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const st = (await conn.getSignatureStatuses([signature])).value[0];
+    if (st?.err) throw new Error("transaction failed on-chain — nothing was charged");
+    if (st?.confirmationStatus === "confirmed" || st?.confirmationStatus === "finalized") {
+      return signature;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `confirmation timed out — check tx ${signature.slice(0, 8)}… in your wallet before retrying`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
 }
 
 export async function payUsdc(amountUsd: number, onStep: (l: string) => void): Promise<string> {
@@ -136,6 +168,7 @@ export async function payUsdc(amountUsd: number, onStep: (l: string) => void): P
       decimals: USDC_DECIMALS,
       amount: amountUsd,
       label: `$${amountUsd.toFixed(2)} usdc`,
+      symbol: "USDC",
       treasury: cfg.treasuryWallet,
     },
     onStep,
@@ -163,6 +196,7 @@ export async function payGf(amountUsd: number, onStep: (l: string) => void): Pro
       // under-pay and get the entry rejected server-side
       amount: q.tokens * 1.01,
       label: `${Math.round(q.tokens).toLocaleString()} $GF`,
+      symbol: "$GF",
       treasury: cfg.treasuryWallet,
     },
     onStep,
