@@ -112,44 +112,60 @@ export default function GameOverlays() {
 
   if (game.status === "funded") {
     const isFree = game.tier === "free";
-    const reward = isFree ? RULES.freeRewardUsd : fundedAccountUsd();
+    const reward = game.prize?.usd ?? (isFree ? RULES.freeRewardUsd : fundedAccountUsd());
+    const status = game.prize?.status ?? "pending";
+    const paid = status === "paid";
     return (
       <div className="overlay">
-        <div className="overlay-card glass max-w-lg w-full mx-4 p-10 text-center !border-[rgba(167,139,250,0.5)] shadow-[0_0_80px_rgba(167,139,250,0.2)]">
-          <p className="panel-title !text-[var(--violet)]">
+        <div className="overlay-card glass max-w-lg w-full mx-4 p-10 text-center !border-[rgba(52,211,153,0.5)] shadow-[0_0_80px_rgba(52,211,153,0.2)]">
+          <p className="panel-title !text-[var(--up)]">
             all three challenges cleared{isFree ? " · free roll" : ""}
           </p>
           <h2
             className="glitch gradient-text mono text-4xl font-bold mt-3"
-            data-text="WELCOME TO THE FIRM"
+            data-text={`YOU WON ${fmtUsd(reward)}`}
           >
-            WELCOME TO THE FIRM
+            YOU WON {fmtUsd(reward)}
           </h2>
           <p className="mono text-xs text-[var(--ink-2)] mt-5 leading-relaxed">
             you cleared {RULES.phases.map((p) => p.gainLabel).join(", ")} without ever breaking the
-            floor. you now trade {fmtUsd(reward)} of the firm&apos;s money — keep{" "}
-            {RULES.profitSplit * 100}% of everything you make, paid to your Phantom.
+            floor. the firm is sending {fmtUsd(reward)} straight to your Phantom.
           </p>
-          <div className="grid grid-cols-2 gap-2 mt-6">
-            <Stat label="your desk" value={fmtUsd(reward)} cls="text-[var(--violet)]" />
-            <Stat
-              label="you keep"
-              value={`${RULES.profitSplit * 100}%`}
-              cls="text-[var(--cyan)]"
-            />
+          <div className="rounded-xl border border-[rgba(52,211,153,0.3)] px-4 py-3 mt-6">
+            <div className="flex items-center justify-center gap-2">
+              <span className={paid ? "text-up" : "text-[var(--amber)]"}>
+                {paid ? "✓" : "⏳"}
+              </span>
+              <span className="mono text-sm">
+                {paid ? `${fmtUsd(reward)} sent` : `${fmtUsd(reward)} — payout queued`}
+              </span>
+            </div>
+            <p className="mono text-[10px] text-[var(--ink-3)] mt-1.5">
+              {paid
+                ? "usdc delivered to your wallet"
+                : "paid automatically to your wallet after a 24h safety window"}
+            </p>
+            {game.prize?.txSig && (
+              <a
+                href={`https://solscan.io/tx/${game.prize.txSig}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mono text-[10px] text-[var(--cyan)] hover:underline mt-1 inline-block"
+              >
+                view transaction ↗
+              </a>
+            )}
           </div>
           <p className="mono text-[10px] text-[var(--ink-3)] mt-4">
-            {isFree
-              ? `free roll reward · upgrade to a paid run for the ${fmtUsd(fundedAccountUsd())} account`
-              : `${RULES.fundedMultiple}x the ${fmtUsd(RULES.entryFeeUsd)} entry`}{" "}
-            · payouts land in usdc — simulated in this build
+            {RULES.fundedMultiple}x your {fmtUsd(RULES.entryFeeUsd)} entry · payouts are simulated in
+            this preview build
           </p>
           <div className="flex gap-2 mt-6">
-            <Link href="/dashboard" className="btn btn-primary flex-1 py-3.5">
-              view dashboard
+            <Link href="/enter" className="btn btn-primary flex-1 py-3.5">
+              play again
             </Link>
-            <Link href="/enter" className="btn flex-1 py-3.5">
-              run it again
+            <Link href="/dashboard" className="btn flex-1 py-3.5">
+              dashboard
             </Link>
           </div>
         </div>

@@ -57,11 +57,19 @@ export interface ServerStatePayload {
     attempt: number;
     finalEquity: number;
   } | null;
+  prize: { usd: number; status: string; txSig: string | null; tier: string } | null;
   positions: Position[];
   trades: TradeRec[];
   withdrawals: WithdrawalRow[];
   history: Array<PhaseResult & { kind?: string }>;
   solUsd: number;
+}
+
+export interface PrizeInfo {
+  usd: number;
+  status: string; // 'pending' | 'paying' | 'paid'
+  txSig: string | null;
+  tier: string;
 }
 
 async function serverCall(path: string, body?: unknown): Promise<TradeResult> {
@@ -101,6 +109,8 @@ interface GameState {
   /** true once a wallet session mirrors the server game */
   serverMode: boolean;
   funded: FundedInfo | null;
+  /** set when all three challenges are cleared — the $300 prize */
+  prize: PrizeInfo | null;
   serverWithdrawals: WithdrawalRow[];
   cashSol: number;
   positions: Position[];
@@ -168,6 +178,7 @@ export const useGame = create<GameState>()(
       lastPayment: null,
       serverMode: false,
       funded: null,
+      prize: null,
       serverWithdrawals: [],
       ...freshPhaseFields(),
       history: [],
@@ -443,11 +454,11 @@ export const useGame = create<GameState>()(
         };
 
         if (p.run) {
-          const isFunded = p.run.kind === "funded";
+          // only active challenge runs exist now — there is no funded account
           set({
             serverMode: true,
             status: "active",
-            phase: isFunded ? RULES.phases.length - 1 : p.run.phase,
+            phase: p.run.phase,
             attempt: p.run.attempt,
             tier: p.run.tier,
             cashSol: p.run.cashSol,
@@ -459,16 +470,23 @@ export const useGame = create<GameState>()(
             endsAt: p.run.endsAt ?? now + CHALLENGE_MS,
             failReason: null,
             equitySeries: pushSeries(p.run.equitySol),
-            funded: isFunded
-              ? {
-                  principalUsd: p.run.principalUsd ?? 0,
-                  startSol: p.run.startSol,
-                  withdrawableUsd:
-                    Math.max(0, p.run.cashSol - p.run.startSol) * (p.solUsd || 75),
-                }
-              : null,
+            funded: null,
+            prize: null,
             serverWithdrawals: p.withdrawals ?? [],
-            history: (p.history ?? []).filter((h) => h.kind !== "funded"),
+            history: p.history ?? [],
+          });
+        } else if (p.prize) {
+          // cleared all three → the $300 prize screen
+          set({
+            serverMode: true,
+            status: "funded",
+            tier: p.prize.tier === "free" ? "free" : "paid",
+            positions: [],
+            trades: [],
+            funded: null,
+            prize: p.prize,
+            serverWithdrawals: p.withdrawals ?? [],
+            history: p.history ?? [],
           });
         } else if (p.lastOutcome && p.lastOutcome.status === "failed") {
           set({
@@ -481,8 +499,9 @@ export const useGame = create<GameState>()(
             positions: [],
             trades: [],
             funded: null,
+            prize: null,
             serverWithdrawals: p.withdrawals ?? [],
-            history: (p.history ?? []).filter((h) => h.kind !== "funded"),
+            history: p.history ?? [],
           });
         } else {
           set({
@@ -493,8 +512,9 @@ export const useGame = create<GameState>()(
             cashSol: RULES.startBalance,
             equity: RULES.startBalance,
             funded: null,
+            prize: null,
             serverWithdrawals: p.withdrawals ?? [],
-            history: (p.history ?? []).filter((h) => h.kind !== "funded"),
+            history: p.history ?? [],
           });
         }
       },
@@ -503,6 +523,7 @@ export const useGame = create<GameState>()(
         set({
           serverMode: false,
           funded: null,
+          prize: null,
           serverWithdrawals: [],
           status: "active",
           phase: 0,

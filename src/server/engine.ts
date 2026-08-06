@@ -307,19 +307,30 @@ export async function securePass(wallet: string): Promise<void> {
               ${RULES.startBalance}, ${RULES.startBalance}, ${now}, ${now + CHALLENGE_MS})
     `;
   } else {
-    // the funded account: OUR capital, simulated, profits withdrawable 80/20
-    const principalUsd =
+    // cleared all three → a fixed cash PRIZE sent straight to the wallet.
+    // No funded account, no profit split: the firm just pays the reward. One
+    // prize per winning run, guarded by the run id so a replay can't double-pay.
+    const prizeUsd =
       run.tier === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple;
-    const startSol = solUsd > 0 ? principalUsd / solUsd : principalUsd / 75;
+    void solUsd;
     await sql`
-      INSERT INTO runs(wallet, kind, tier, phase, attempt, status, cash_sol, start_sol, principal_usd, started_at)
-      VALUES (${wallet}, 'funded', ${run.tier}, 0, 1, 'active', ${startSol}, ${startSol}, ${principalUsd}, ${now})
+      INSERT INTO withdrawals(wallet, run_id, profit_usd, payout_usd, status, requested_at, payable_at)
+      SELECT ${wallet}, ${run.id}, ${prizeUsd}, ${prizeUsd}, 'pending', ${now}, ${now + 24 * 3600_000}
+      WHERE NOT EXISTS (SELECT 1 FROM withdrawals WHERE run_id = ${run.id})
     `;
   }
 }
 
-/** realized cash above the funded principal → withdrawal (after the split) */
+/** deprecated: the funded-account withdrawal model is replaced by a fixed prize
+ *  paid automatically on clearing challenge 3. Kept as a guarded no-op so the
+ *  old route can't do anything. */
 export async function requestWithdrawal(wallet: string) {
+  void wallet;
+  throw new Error("withdrawals are automatic now — the prize is sent on winning");
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _legacyRequestWithdrawal(wallet: string) {
   let run = await activeFunded(wallet);
   if (!run) throw new Error("no funded account");
   run = await settle(run);
@@ -394,8 +405,25 @@ export async function clientState(wallet: string) {
 
   const last = await lastChallenge(wallet);
 
+  // the prize: set once the most recent run cleared all three challenges
+  const won = last && last.status === "funded" ? last : undefined;
+  const prizeRow = won ? withdrawals.find((w) => Number(w.run_id) === won.id) : undefined;
+  const prize = won
+    ? {
+        usd: prizeRow
+          ? Number(prizeRow.payout_usd)
+          : won.tier === "free"
+            ? RULES.freeRewardUsd
+            : RULES.entryFeeUsd * RULES.fundedMultiple,
+        status: (prizeRow?.status as string) ?? "pending",
+        txSig: (prizeRow?.tx_sig as string) ?? null,
+        tier: won.tier,
+      }
+    : null;
+
   return {
     wallet,
+    prize,
     run: shown
       ? {
           kind: shown.kind,

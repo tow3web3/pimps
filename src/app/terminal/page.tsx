@@ -12,6 +12,7 @@ import PositionsPanel from "@/components/PositionsPanel";
 import ChallengeHUD from "@/components/ChallengeHUD";
 import GameOverlays from "@/components/GameOverlays";
 import MobileTradeBar from "@/components/MobileTradeBar";
+import MobileChallengeBar from "@/components/MobileChallengeBar";
 import LiveFeed, { FeedToasts } from "@/components/LiveFeed";
 import TokenInfoPanel from "@/components/TokenInfoPanel";
 
@@ -94,6 +95,9 @@ export default function TerminalPage() {
       </main>
 
       {/* ── mobile: chart fills the screen, trading never leaves it ── */}
+      <div className="lg:hidden px-2 pt-2">
+        <MobileChallengeBar onOpen={() => setTab("stats")} />
+      </div>
       <main
         className={`lg:hidden flex-1 min-h-0 flex flex-col p-2 gap-2 ${
           tab === "chart" ? "pb-[86px]" : "pb-2"

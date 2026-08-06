@@ -273,12 +273,11 @@ export default function EnterPage() {
               <ul className="mono text-[11px] text-[var(--ink-2)] mt-6 space-y-1.5 max-w-md mx-auto">
                 <li>▸ {RULES.startBalance} SOL demo stack per phase · live pump.fun prices</li>
                 <li>
-                  ▸ pass all three → trade $
+                  ▸ pass all three → $
                   {method === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple}{" "}
-                  of the firm&apos;s money
+                  sent straight to your Phantom
                 </li>
-                <li>▸ keep {RULES.profitSplit * 100}% of your profits, paid to your Phantom</li>
-                <li>▸ a losing run costs this fee, nothing more</li>
+                <li>▸ a fixed cash prize · a losing run costs this fee, nothing more</li>
               </ul>
 
               <button

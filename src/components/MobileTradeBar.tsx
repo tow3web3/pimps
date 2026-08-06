@@ -212,10 +212,12 @@ export default function MobileTradeBar() {
                       setSide("buy");
                       setOpen(true);
                     }}
-                    className="btn !px-3 !py-3 shrink-0"
+                    className="btn btn-cyan !px-3.5 !py-3 shrink-0 flex flex-col items-center gap-0"
                     aria-label="more options"
+                    title="more — custom amount, sell, details"
                   >
-                    ⋯
+                    <span className="text-[13px] leading-none animate-bounce">▲</span>
+                    <span className="text-[8px] tracking-[0.1em] mt-0.5">more</span>
                   </button>
                 </>
               ) : (
