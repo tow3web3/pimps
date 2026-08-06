@@ -48,7 +48,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${bricolage.variable} ${serif.variable} ${jbmono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      {/* suppressHydrationWarning: wallet/color-picker extensions stamp
+          attributes on <body> before React hydrates — harmless, not ours */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <div className="bg-scene" aria-hidden />
         <div className="scanlines" aria-hidden />
         {children}

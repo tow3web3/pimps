@@ -17,7 +17,7 @@ import {
   type DetectedWallet,
   type RuntimeConfig,
 } from "@/lib/payments";
-import { connectWallet, emailLogin, serverEnter, useAuth } from "@/lib/authClient";
+import { connectWallet, emailLogin, serverEnter, useAuth, useServerSync } from "@/lib/authClient";
 import PrivyConnect, { privyEnabled } from "@/components/PrivyConnect";
 
 type Method = "usdc" | "gf" | "free";
@@ -43,6 +43,7 @@ const stepsFor = (m: Method): Array<{ text: string; ms: number }> =>
       ];
 
 export default function EnterPage() {
+  useServerSync(); // restore an existing session — no TopBar on this page
   const router = useRouter();
   const game = useGame();
   const authedWallet = useAuth((s) => s.wallet);
@@ -446,6 +447,16 @@ export default function EnterPage() {
                           }`}{" "}
                     <span className="btn-arrow">→</span>
                   </button>
+                )}
+                {privyEnabled() && !authedWallet && !gfUnavailable && (
+                  <p className="text-center mt-3">
+                    <button
+                      onClick={pay}
+                      className="mono text-[11px] text-[var(--ink-3)] hover:text-[var(--ink)] underline underline-offset-2"
+                    >
+                      or connect your browser wallet directly (Phantom, Solflare…)
+                    </button>
+                  </p>
                 )}
               </div>
               {error && (

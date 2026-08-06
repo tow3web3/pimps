@@ -45,9 +45,23 @@ export async function loadConfig(force = false): Promise<RuntimeConfig> {
 interface PhantomProvider {
   isPhantom?: boolean;
   publicKey: PublicKey | null;
-  connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: PublicKey }>;
+  /** Phantom resolves { publicKey }; Solflare resolves `true` and exposes
+      the key on provider.publicKey — never destructure the result */
+  connect: (opts?: {
+    onlyIfTrusted?: boolean;
+  }) => Promise<{ publicKey: PublicKey } | boolean | void>;
   signAndSendTransaction: (tx: Transaction) => Promise<{ signature: string }>;
   signMessage?: (msg: Uint8Array, encoding: "utf8") => Promise<{ signature: Uint8Array }>;
+}
+
+/** normalize every wallet's connect() shape into one PublicKey */
+export async function connectAndGetKey(provider: PhantomProvider): Promise<PublicKey> {
+  const res = await provider.connect();
+  const fromResult =
+    res && typeof res === "object" && "publicKey" in res ? res.publicKey : null;
+  const pk = fromResult ?? provider.publicKey;
+  if (!pk) throw new Error("the wallet connected but did not expose a public key — retry");
+  return pk;
 }
 
 export interface DetectedWallet {
@@ -142,7 +156,7 @@ async function transferToTreasury(
   const treasury = new PublicKey(opts.treasury);
 
   onStep("connecting wallet…");
-  const { publicKey } = await provider.connect();
+  const publicKey = await connectAndGetKey(provider);
   const pk = publicKey.toBase58();
   onStep(`wallet ${pk.slice(0, 4)}…${pk.slice(-4)} connected`);
 

@@ -7,7 +7,7 @@
 import { useEffect, useRef } from "react";
 import { create } from "zustand";
 import bs58 from "bs58";
-import { getProvider, setPreferredWallet, withWalletTimeout } from "./payments";
+import { connectAndGetKey, getProvider, setPreferredWallet, withWalletTimeout } from "./payments";
 import { useGame } from "./store";
 
 interface AuthState {
@@ -33,8 +33,10 @@ export async function connectWallet(walletId?: string): Promise<string> {
   useAuth.setState({ connecting: true });
   try {
     // 60s to approve the connect popup; if the extension's bridge is dead it
-    // rejects here instead of hanging the whole page forever
-    const { publicKey } = await withWalletTimeout(provider.connect(), 60_000, "connect");
+    // rejects here instead of hanging the whole page forever. Never
+    // destructure connect()'s result: Solflare resolves `true` and keeps the
+    // key on provider.publicKey
+    const publicKey = await withWalletTimeout(connectAndGetKey(provider), 60_000, "connect");
     const wallet = publicKey.toBase58();
 
     const nonceRes = await fetch("/api/auth/nonce", {
