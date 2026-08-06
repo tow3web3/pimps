@@ -1,14 +1,20 @@
 "use client";
 
-// Privy email login → embedded Solana wallet, created on the spot. The
-// embedded wallet then signs OUR normal login message, so the server keeps
-// exactly one identity model (a Solana address) and payouts need no special
-// case: the prize goes to the wallet the user was born with here.
+// ONE door for every identity: Privy's modal offers email (mints an embedded
+// Solana wallet on the spot) AND external wallets (Phantom, Solflare,
+// Backpack… via wallet-standard). Whichever the user picks, the resulting
+// wallet signs OUR normal login message — the server keeps a single identity
+// model (a Solana address) and payouts go to the wallet the account owns.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import bs58 from "bs58";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
-import { useCreateWallet, useSignMessage, useWallets } from "@privy-io/react-auth/solana";
+import {
+  toSolanaWalletConnectors,
+  useCreateWallet,
+  useSignMessage,
+  useWallets,
+} from "@privy-io/react-auth/solana";
 import { refreshServerState, useAuth } from "@/lib/authClient";
 
 const APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "";
@@ -36,16 +42,16 @@ function Inner({
   const running = useRef(false);
   const wallet = wallets[0];
 
-  // after the Privy modal completes: make sure the embedded wallet exists
+  // email path completed but no wallet yet → mint the embedded one
   useEffect(() => {
     if (!busy || !authenticated || !ready || wallets.length > 0) return;
     createWallet().catch(() => {
-      /* either it already exists or the effect below never fires — surfaced
-         by the timeout in start() */
+      /* either it already exists, or the flow below never fires and the
+         user can simply retry */
     });
   }, [busy, authenticated, ready, wallets.length, createWallet]);
 
-  // wallet present → run our own nonce/sign/verify session flow
+  // wallet present (embedded or external) → run our nonce/sign/verify flow
   useEffect(() => {
     if (!busy || !authenticated || !wallet || running.current) return;
     running.current = true;
@@ -95,7 +101,7 @@ function Inner({
         onError("could not open the login window");
       }
     }
-    // if authenticated already, the effects above take it from here
+    // already authenticated → the effects above take it from here
   };
 
   return (
@@ -105,7 +111,7 @@ function Inner({
   );
 }
 
-export default function PrivyEmail(props: {
+export default function PrivyConnect(props: {
   onDone: () => void;
   onError: (msg: string) => void;
   className?: string;
@@ -116,11 +122,18 @@ export default function PrivyEmail(props: {
     <PrivyProvider
       appId={APP_ID}
       config={{
-        loginMethods: ["email"],
-        appearance: { theme: "light", accentColor: "#ff5200" },
+        loginMethods: ["email", "wallet"],
+        appearance: {
+          theme: "light",
+          accentColor: "#ff5200",
+          walletChainType: "solana-only",
+        },
         embeddedWallets: {
           showWalletUIs: false,
           solana: { createOnLogin: "users-without-wallets" },
+        },
+        externalWallets: {
+          solana: { connectors: toSolanaWalletConnectors() },
         },
       }}
     >

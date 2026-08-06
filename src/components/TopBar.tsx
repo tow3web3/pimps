@@ -7,6 +7,7 @@ import { useGame } from "@/lib/store";
 import { useMarket } from "@/lib/market";
 import { fmtSol, fmtUsd } from "@/lib/format";
 import { connectWallet, disconnectWallet, useAuth, useServerSync } from "@/lib/authClient";
+import PrivyConnect, { privyEnabled } from "@/components/PrivyConnect";
 
 export default function TopBar() {
   useServerSync();
@@ -50,29 +51,40 @@ export default function TopBar() {
           </span>
           {fmtSol(game.equity, 2)} <span className="text-[var(--ink-3)] text-[10px]">SOL</span>
         </span>
-        <button
-          onClick={() => {
-            if (wallet) void disconnectWallet();
-            else connectWallet().catch(() => {});
-          }}
-          className={`chip shrink-0 whitespace-nowrap transition-colors ${
-            wallet
-              ? "!text-[var(--up)] !border-[rgba(0,214,143,0.45)] hover:!text-[var(--down)] hover:!border-[rgba(255,82,82,0.45)]"
-              : "!text-[var(--cyan)] !border-[rgba(255,90,0,0.45)] hover:bg-[rgba(255,90,0,0.08)]"
-          }`}
-          title={wallet ? "click to disconnect" : "sign in with your Solana wallet"}
-        >
-          {connecting ? (
-            "connecting…"
-          ) : wallet ? (
-            `◆ ${label ?? `${wallet.slice(0, 4)}…${wallet.slice(-4)}`}`
-          ) : (
-            <>
-              <span className="sm:hidden">◆ connect</span>
-              <span className="hidden sm:inline">connect wallet</span>
-            </>
-          )}
-        </button>
+        {!wallet && privyEnabled() ? (
+          <PrivyConnect
+            onDone={() => {}}
+            onError={() => {}}
+            className="chip shrink-0 whitespace-nowrap transition-colors !text-[var(--cyan)] !border-[rgba(255,90,0,0.45)] hover:bg-[rgba(255,90,0,0.08)]"
+          >
+            <span className="sm:hidden">◆ sign in</span>
+            <span className="hidden sm:inline">sign in — email or wallet</span>
+          </PrivyConnect>
+        ) : (
+          <button
+            onClick={() => {
+              if (wallet) void disconnectWallet();
+              else connectWallet().catch(() => {});
+            }}
+            className={`chip shrink-0 whitespace-nowrap transition-colors ${
+              wallet
+                ? "!text-[var(--up)] !border-[rgba(0,214,143,0.45)] hover:!text-[var(--down)] hover:!border-[rgba(255,82,82,0.45)]"
+                : "!text-[var(--cyan)] !border-[rgba(255,90,0,0.45)] hover:bg-[rgba(255,90,0,0.08)]"
+            }`}
+            title={wallet ? "click to disconnect" : "sign in with your Solana wallet"}
+          >
+            {connecting ? (
+              "connecting…"
+            ) : wallet ? (
+              `◆ ${label ?? `${wallet.slice(0, 4)}…${wallet.slice(-4)}`}`
+            ) : (
+              <>
+                <span className="sm:hidden">◆ connect</span>
+                <span className="hidden sm:inline">connect wallet</span>
+              </>
+            )}
+          </button>
+        )}
         <nav className="hidden sm:flex items-center gap-1.5">
           <Link
             href="/terminal"

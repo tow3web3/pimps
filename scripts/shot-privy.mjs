@@ -9,12 +9,12 @@ await p.goto("http://localhost:3333/enter", { waitUntil: "networkidle2", timeout
 // wait for the privy button to become enabled (SDK ready)
 await p.waitForFunction(
   () => {
-    const btn = [...document.querySelectorAll("button")].find((x) => x.textContent.includes("continue with email"));
+    const btn = [...document.querySelectorAll("button")].find((x) => x.textContent.includes("Sign in"));
     return btn && !btn.disabled;
   },
   { timeout: 20000 },
 ).catch(() => errs.push("button never became ready"));
-await p.evaluate(() => [...document.querySelectorAll("button")].find((x) => x.textContent.includes("continue with email"))?.click());
+await p.evaluate(() => [...document.querySelectorAll("button")].find((x) => x.textContent.includes("Sign in"))?.click());
 await new Promise((r) => setTimeout(r, 6000));
 const probe = await p.evaluate(() => ({
   privyDialog: !!document.querySelector('#privy-dialog, [id*="privy"], iframe[src*="privy"]'),

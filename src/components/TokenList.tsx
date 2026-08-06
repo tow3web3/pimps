@@ -148,57 +148,94 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
         {universeLoaded && rows.length === 0 && (
           <p className="mono text-xs text-[var(--ink-3)] p-4">no token matches</p>
         )}
-        {rows.map((t) => {
-          const up = t.chg24h >= 0;
-          return (
-            <button
-              key={t.mint}
-              onClick={() => {
-                select(t.mint);
-                onPick?.();
-              }}
-              className={`token-row w-full text-left px-3 py-2.5 flex items-center gap-2.5 ${
-                selected === t.mint ? "selected" : ""
-              }`}
-            >
-              <TokenIcon url={t.imageUrl} symbol={t.symbol} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="mono text-[13px] font-medium truncate">{t.symbol}</span>
-                  {heldMints.has(t.mint) && (
-                    <span
-                      className="w-1.5 h-1.5 rounded-full bg-[var(--cyan)] shrink-0"
-                      title="position open"
-                    />
-                  )}
+        {(() => {
+          const renderRow = (t: import("@/lib/types").TokenInfo) => {
+            const pos = positions.find((p) => p.mint === t.mint);
+            const pnlPct =
+              pos && pos.avgPriceSol > 0
+                ? ((t.priceSol - pos.avgPriceSol) / pos.avgPriceSol) * 100
+                : null;
+            const up = t.chg24h >= 0;
+            return (
+              <button
+                key={t.mint}
+                onClick={() => {
+                  select(t.mint);
+                  onPick?.();
+                }}
+                className={`token-row w-full text-left px-3 py-2.5 flex items-center gap-2.5 ${
+                  selected === t.mint ? "selected" : ""
+                }`}
+              >
+                <TokenIcon url={t.imageUrl} symbol={t.symbol} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="mono text-[13px] font-medium truncate">{t.symbol}</span>
+                    {pos && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-[var(--cyan)] shrink-0"
+                        title="position open"
+                      />
+                    )}
+                  </div>
+                  <div className="mono text-[10px] text-[var(--ink-3)]">
+                    {t.mcapUsd < RULES.minMcapUsd ? (
+                      <span className="text-[var(--amber)]">
+                        mc {fmtCompact(t.mcapUsd)} · sell only
+                      </span>
+                    ) : (
+                      <>
+                        {sort === "hot" && (t.vol5mUsd ?? 0) > 0 && (
+                          <span className="text-[var(--heat-deep)]">
+                            5m {fmtCompact(t.vol5mUsd ?? 0)} ·{" "}
+                          </span>
+                        )}
+                        mc {fmtCompact(t.mcapUsd)}
+                        {t.ageHours ? ` · ${fmtAge(t.ageHours)}` : ""}
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="mono text-[10px] text-[var(--ink-3)]">
-                  {t.mcapUsd < RULES.minMcapUsd ? (
-                    <span className="text-[var(--amber)]">
-                      mc {fmtCompact(t.mcapUsd)} · sell only
-                    </span>
+                <div className="text-right shrink-0">
+                  <div className="mono text-[12px]">{fmtUsd(t.priceUsd)}</div>
+                  {pnlPct !== null ? (
+                    <div
+                      className={`mono text-[10px] font-bold ${
+                        pnlPct >= 0 ? "text-up" : "text-down"
+                      }`}
+                    >
+                      {pnlPct >= 0 ? "▲" : "▼"} {fmtPct(pnlPct, 1)} pnl
+                    </div>
                   ) : (
-                    <>
-                      {sort === "hot" && (t.vol5mUsd ?? 0) > 0 && (
-                        <span className="text-[var(--heat-deep)]">
-                          5m {fmtCompact(t.vol5mUsd ?? 0)} ·{" "}
-                        </span>
-                      )}
-                      mc {fmtCompact(t.mcapUsd)}
-                      {t.ageHours ? ` · ${fmtAge(t.ageHours)}` : ""}
-                    </>
+                    <div className={`mono text-[10px] ${up ? "text-up" : "text-down"}`}>
+                      {fmtPct(t.chg24h, 1)}
+                    </div>
                   )}
                 </div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className="mono text-[12px]">{fmtUsd(t.priceUsd)}</div>
-                <div className={`mono text-[10px] ${up ? "text-up" : "text-down"}`}>
-                  {fmtPct(t.chg24h, 1)}
-                </div>
-              </div>
-            </button>
+              </button>
+            );
+          };
+
+          const held = rows.filter((t) => heldMints.has(t.mint));
+          const rest = rows.filter((t) => !heldMints.has(t.mint));
+          return (
+            <>
+              {held.length > 0 && (
+                <>
+                  <div className="px-3 pt-2 pb-1 flex items-center gap-2">
+                    <span className="panel-title !text-[var(--heat-deep)]">
+                      ◆ your positions
+                    </span>
+                    <span className="chip !text-[10px] !px-1.5 !py-0">{held.length}</span>
+                  </div>
+                  {held.map(renderRow)}
+                  <div className="border-b border-[var(--border)] mx-3 my-1" />
+                </>
+              )}
+              {rest.map(renderRow)}
+            </>
           );
-        })}
+        })()}
       </div>
     </div>
   );

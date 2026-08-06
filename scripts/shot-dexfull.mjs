@@ -16,6 +16,7 @@ await req("/api/auth/verify", { method: "POST", body: JSON.stringify({ wallet, s
 await req("/api/game/enter", { method: "POST", body: JSON.stringify({ method: "free" }) });
 const toks = await req("/api/tokens");
 await req("/api/game/buy", { method: "POST", body: JSON.stringify({ mint: toks.tokens[0].mint, solAmount: 2 }) });
+await req("/api/game/buy", { method: "POST", body: JSON.stringify({ mint: toks.tokens[1].mint, solAmount: 1.2 }) });
 const [name, value] = cookie.split("=");
 const b = await puppeteer.launch({ executablePath: CHROME, headless: "new" });
 await b.setCookie({ name, value, domain: "localhost", path: "/" });

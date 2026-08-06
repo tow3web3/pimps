@@ -18,7 +18,7 @@ import {
   type RuntimeConfig,
 } from "@/lib/payments";
 import { connectWallet, emailLogin, serverEnter, useAuth } from "@/lib/authClient";
-import PrivyEmail, { privyEnabled } from "@/components/PrivyEmail";
+import PrivyConnect, { privyEnabled } from "@/components/PrivyConnect";
 
 type Method = "usdc" | "gf" | "free";
 
@@ -45,6 +45,7 @@ const stepsFor = (m: Method): Array<{ text: string; ms: number }> =>
 export default function EnterPage() {
   const router = useRouter();
   const game = useGame();
+  const authedWallet = useAuth((s) => s.wallet);
   // default to the one lane that can ALWAYS proceed — before the token
   // launches the $GF lane is locked, and a dead default button reads as
   // "the site is broken", not "the token isn't out yet"
@@ -389,8 +390,8 @@ export default function EnterPage() {
                 <li>▸ a fixed cash prize · a losing run costs this fee, nothing more</li>
               </ul>
 
-              {/* which wallet signs — only shown when there is a real choice */}
-              {wallets.length > 1 && (
+              {/* which wallet signs — only without Privy (its modal has its own list) */}
+              {!privyEnabled() && wallets.length > 1 && (
                 <div className="max-w-md mx-auto mt-7 flex items-center justify-center gap-2 flex-wrap">
                   <span className="mono text-[10px] tracking-[0.2em] uppercase text-[var(--ink-3)]">
                     sign with
@@ -414,23 +415,38 @@ export default function EnterPage() {
                   ))}
                 </div>
               )}
-              {mounted && wallets.length === 0 && (
+              {mounted && !privyEnabled() && wallets.length === 0 && (
                 <p className="mono text-[10px] text-[var(--ink-3)] mt-6 text-center">
                   no Solana wallet detected — install Phantom, Solflare or Backpack, then reload
                 </p>
               )}
 
               <div className="max-w-md mx-auto mt-6">
-                <button onClick={pay} disabled={gfUnavailable} className="btn-heat w-full !py-4">
-                  {method === "free"
-                    ? "Connect wallet & play free"
-                    : gfUnavailable
-                      ? `$${RULES.token.symbol} lane opens at token launch`
-                      : `Pay ${fmtUsd(method === "gf" ? gfPrice : usdcPrice)}${
-                          method === "gf" ? ` in ${RULES.token.symbol}` : " USDC"
-                        }`}{" "}
-                  <span className="btn-arrow">→</span>
-                </button>
+                {privyEnabled() && !authedWallet ? (
+                  <PrivyConnect
+                    onDone={method === "free" ? afterEmailAuth : pay}
+                    onError={(m) => setError(m)}
+                    className="btn-heat w-full !py-4"
+                  >
+                    {method === "free"
+                      ? "Sign in & play free — email or wallet"
+                      : gfUnavailable
+                        ? `$${RULES.token.symbol} lane opens at token launch`
+                        : `Sign in to pay ${fmtUsd(method === "gf" ? gfPrice : usdcPrice)}`}{" "}
+                    <span className="btn-arrow">→</span>
+                  </PrivyConnect>
+                ) : (
+                  <button onClick={pay} disabled={gfUnavailable} className="btn-heat w-full !py-4">
+                    {method === "free"
+                      ? "Connect wallet & play free"
+                      : gfUnavailable
+                        ? `$${RULES.token.symbol} lane opens at token launch`
+                        : `Pay ${fmtUsd(method === "gf" ? gfPrice : usdcPrice)}${
+                            method === "gf" ? ` in ${RULES.token.symbol}` : " USDC"
+                          }`}{" "}
+                    <span className="btn-arrow">→</span>
+                  </button>
+                )}
               </div>
               {error && (
                 <div className="max-w-md mx-auto mt-5 border-2 border-[var(--down)] rounded-[4px] px-4 py-3 bg-[rgba(207,59,49,0.07)]">
@@ -444,18 +460,6 @@ export default function EnterPage() {
               {/* the no-wallet alternative — free roll only. Privy when
                   configured (email login mints an embedded Solana wallet);
                   the homemade email+password form as fallback */}
-              {method === "free" && privyEnabled() && (
-                <p className="max-w-md mx-auto mt-5 text-center">
-                  <PrivyEmail
-                    onDone={afterEmailAuth}
-                    onError={(m) => setError(m)}
-                    className="link-und text-[13px] text-[var(--ink-2)]"
-                  >
-                    no wallet? continue with email — we create one for you{" "}
-                    <span className="btn-arrow">→</span>
-                  </PrivyEmail>
-                </p>
-              )}
               {method === "free" && !privyEnabled() && (
                 <div className="max-w-md mx-auto mt-5">
                   {!emailMode ? (
