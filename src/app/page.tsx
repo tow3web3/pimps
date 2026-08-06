@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BRAND, entryFeeGfUsd, fundedAccountUsd, RULES } from "@/lib/rules";
 import LiveTape from "@/components/LiveTape";
+import SocialLinks from "@/components/SocialLinks";
 import Reveal from "@/components/Reveal";
 import CountUp from "@/components/CountUp";
 
@@ -51,6 +52,7 @@ export default function Landing() {
           <Link href="/leaderboard" className="link-und text-[14px] hidden md:block">
             board
           </Link>
+          <SocialLinks />
           <Link href="/enter" className="btn-ink !py-2.5 !px-5 !text-[14px]">
             Launch terminal <span className="btn-arrow">→</span>
           </Link>
@@ -472,6 +474,7 @@ export default function Landing() {
               <Link href="/terms" className="link-und text-[14px] !text-[rgba(242,239,230,0.7)]">
                 terms &amp; risk
               </Link>
+              <SocialLinks className="!gap-2 [&_a]:!border-[rgba(242,239,230,0.6)] [&_a]:!text-[#f2efe6] [&_a]:!bg-transparent [&_a]:!shadow-[2px_2px_0_rgba(242,239,230,0.35)]" />
             </div>
             <p className="mono text-[10px] text-[rgba(242,239,230,0.45)] max-w-md leading-relaxed md:text-right">
               memecoins are violently volatile. entry fees are at risk and nothing here is

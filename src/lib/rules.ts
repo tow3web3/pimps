@@ -4,6 +4,13 @@
 export const BRAND = "GETFUNDED";
 export const TAGLINE = "trade memecoins. get funded.";
 
+/** community links — paste the real URLs when live; empty strings keep the
+    icons visible but pointing nowhere yet */
+export const SOCIALS = {
+  x: "",
+  telegram: "",
+};
+
 export const RULES = {
   /** Virtual starting balance for every phase, in SOL */
   startBalance: 10,
