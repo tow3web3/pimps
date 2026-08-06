@@ -298,7 +298,7 @@ export default async function Whitepaper() {
           <div className="glass p-5 mt-5">
             <Row k="framework" v="Next.js 16 · React 19 · TypeScript" />
             <Row k="book & rules" v="zustand store, persisted locally in the preview" />
-            <Row k="charts" v="lightweight-charts v5 (TradingView engine)" />
+            <Row k="charts" v="DexScreener embedded — the same marks your fills settle on" />
             <Row k="landing scene" v="hand-written WebGL fragment shader, zero deps" />
             <Row k="styling" v="Tailwind v4 + custom glass/HUD design system" />
             <Row k="data proxy" v="edge route handlers with per-source caching" />

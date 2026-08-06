@@ -9,10 +9,9 @@ import type { TokenInfo } from "@/lib/types";
 
 const WSOL = "So11111111111111111111111111111111111111112";
 const MAX_HOT = 30; // DexScreener batch limit
-// 1s window: this is a trading app — DexScreener (free) drives every tick,
-// the paid Helius overlay throttles itself separately below
+// 1s window: this is a trading app — DexScreener (free) drives every tick
+// and is the single mark authority, because the chart on screen is theirs
 const STALE_MS = 1_000;
-const HELIUS_EVERY_MS = 2_500;
 
 interface DsPair {
   pairAddress: string;
@@ -54,7 +53,7 @@ async function heliusOverlay(
       if (a.id === WSOL) sol = p;
       else prices[a.id] = p;
     }
-    if (sol <= 0 || Object.keys(prices).length === 0) return null;
+    if (sol <= 0) return null;
     return { prices, solUsd: sol };
   } catch {
     return null;
@@ -109,21 +108,12 @@ async function refresh(): Promise<void> {
     });
   }
 
-  // Helius rides along only every HELIUS_EVERY_MS — the 1s heartbeat is the
-  // free feed, the paid overlay corrects it without multiplying credits
-  const heliusDue =
-    Date.now() - Number((await sql`SELECT value FROM kv WHERE key = 'px:helius_at'`)[0]?.value ?? 0) >
-    HELIUS_EVERY_MS;
-  const h = heliusDue ? await heliusOverlay(fresh.map((t) => t.mint)) : null;
-  if (h) {
-    solUsd = h.solUsd;
-    for (const t of fresh) {
-      const usd = h.prices[t.mint];
-      if (usd > 0) {
-        t.priceUsd = usd;
-        t.priceSol = usd / h.solUsd;
-      }
-    }
+  // DexScreener is the ONE price authority: the embedded chart is theirs, so
+  // fills must settle on exactly what the trader is looking at. Helius no
+  // longer overrides marks — it only rescues solUsd if DS gave us nothing.
+  if (solUsd <= 0) {
+    const h = await heliusOverlay([]);
+    if (h) solUsd = h.solUsd;
   }
 
   const now = Date.now();
@@ -141,11 +131,7 @@ async function refresh(): Promise<void> {
   );
   const kvRows = [
     ["px:solUsd", String(solUsd)],
-    // stamp only on success (a failure stays due and retries next second);
-    // update the source label only on an actual attempt so it doesn't flap
-    // between overlay windows
-    ...(h ? [["px:helius_at", String(now)]] : []),
-    ...(heliusDue ? [["px:source", h ? "helius" : "dexscreener"]] : []),
+    ["px:source", "dexscreener"],
   ]
     .map(([k, v]) => `('${k}','${String(v).replace(/'/g, "''")}',${now})`)
     .join(",");

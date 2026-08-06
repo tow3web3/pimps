@@ -1,0 +1,28 @@
+import puppeteer from "puppeteer-core";
+import nacl from "tweetnacl";
+import bs58 from "bs58";
+const [S, CHROME] = process.argv.slice(2);
+const kp = nacl.sign.keyPair();
+const wallet = bs58.encode(kp.publicKey);
+let cookie = "";
+const req = async (path, opts = {}) => {
+  const r = await fetch("http://localhost:3333" + path, { ...opts, headers: { "content-type": "application/json", cookie, ...(opts.headers || {}) } });
+  const c = r.headers.get("set-cookie"); if (c) cookie = c.split(";")[0];
+  return r.json().catch(() => null);
+};
+const n = await req("/api/auth/nonce", { method: "POST", body: JSON.stringify({ wallet }) });
+const sig = bs58.encode(nacl.sign.detached(new TextEncoder().encode(n.message), kp.secretKey));
+await req("/api/auth/verify", { method: "POST", body: JSON.stringify({ wallet, signature: sig }) });
+await req("/api/game/enter", { method: "POST", body: JSON.stringify({ method: "free" }) });
+const toks = await req("/api/tokens");
+await req("/api/game/buy", { method: "POST", body: JSON.stringify({ mint: toks.tokens[0].mint, solAmount: 2 }) });
+const [name, value] = cookie.split("=");
+const b = await puppeteer.launch({ executablePath: CHROME, headless: "new" });
+await b.setCookie({ name, value, domain: "localhost", path: "/" });
+const p = await b.newPage();
+await p.setViewport({ width: 1500, height: 950 });
+await p.goto("http://localhost:3333/terminal", { waitUntil: "networkidle2", timeout: 45000 }).catch(() => {});
+await new Promise((r) => setTimeout(r, 9000));
+await p.screenshot({ path: `${S}/dex-full.png` });
+await b.close();
+console.log("done");
