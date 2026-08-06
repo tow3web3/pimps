@@ -201,7 +201,7 @@ export default function EnterPage() {
       price: fmtUsd(gfPrice),
       was: fmtUsd(usdcPrice),
       badge: `−${RULES.token.discount * 100}%`,
-      copy: `paid in ${RULES.token.name} at market rate · burns back into the ecosystem`,
+      copy: `paid in ${RULES.token.name} at market rate · every entry is burned — supply only shrinks`,
     },
     {
       m: "usdc",

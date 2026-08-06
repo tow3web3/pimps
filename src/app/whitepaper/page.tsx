@@ -375,6 +375,7 @@ export default async function Whitepaper() {
               k={`entry in ${RULES.token.symbol}`}
               v={`$${entryFeeGfUsd().toFixed(2)} equivalent, at market rate`}
             />
+            <Row k="what happens to it" v="every entry is burned — removed from supply" />
             <Row k="mint" v={gfMint || "not yet deployed"} />
           </div>
           <p className="mt-4">
@@ -382,6 +383,12 @@ export default async function Whitepaper() {
             {RULES.token.symbol} does one thing: it makes every attempt cheaper. That keeps the
             token&apos;s value proposition honest — it is a discount coupon with a market price,
             and demand for it scales exactly with demand for seats.
+          </p>
+          <p className="mt-4">
+            Entries paid in {RULES.token.symbol} are <b>burned by the firm</b> — sent out of
+            circulation, verifiable on-chain. The treasury never re-sells entry tokens into the
+            market: every seat bought with {RULES.token.symbol} is supply that permanently
+            disappears. Demand for seats becomes deflation, not sell pressure.
           </p>
           <Callout title="not deployed yet">
             The token is not live. Until a mint address appears above — verifiable on-chain — any

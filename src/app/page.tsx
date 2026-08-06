@@ -28,6 +28,8 @@ const SLOGANS = [
   "no liquidations",
   "free roll — win $50",
   "skill is the only edge",
+  "$GETFUNDED entries are burned",
+  "supply only shrinks",
 ];
 
 export default function Landing() {
@@ -374,8 +376,9 @@ export default function Landing() {
                 </span>
               </div>
               <p className="text-[14px] text-[var(--ink-2)] mt-4 leading-relaxed">
-                USDC on Solana, or ${RULES.token.symbol} at −{RULES.token.discount * 100}%. Pass
-                all three and the firm sends{" "}
+                USDC on Solana, or ${RULES.token.symbol} at −{RULES.token.discount * 100}% —{" "}
+                <b className="text-[var(--ink)]">every ${RULES.token.symbol} entry is burned</b>,
+                so playing shrinks the supply. Pass all three and the firm sends{" "}
                 <b className="text-[var(--heat-deep)]">${funded} to your Phantom</b> —{" "}
                 {RULES.fundedMultiple}x your entry. A losing run costs the fee, nothing more.
               </p>
@@ -425,7 +428,7 @@ export default function Landing() {
             },
             {
               q: `What is the ${RULES.token.symbol} token for?`,
-              a: `One thing: paying your entry at a ${RULES.token.discount * 100}% discount — $${entryFeeGfUsd()} instead of $${RULES.entryFeeUsd}. No governance, no gated formats, no claim on anything. It's a discount with a market price. The token is not deployed yet; the whitepaper will carry the mint address once it is.`,
+              a: `One thing: paying your entry at a ${RULES.token.discount * 100}% discount — $${entryFeeGfUsd()} instead of $${RULES.entryFeeUsd}. And every entry paid in ${RULES.token.symbol} is burned by the firm: those tokens leave circulation for good, so playing shrinks the supply instead of feeding sell pressure. No governance, no gated formats, no claim on anything. The token is not deployed yet; the whitepaper will carry the mint address once it is.`,
             },
           ].map((f, i) => (
             <Reveal key={f.q} delay={i * 40}>
