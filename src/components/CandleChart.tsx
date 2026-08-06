@@ -19,6 +19,7 @@ const UP = "#0a8f55";
 const DOWN = "#cf3b31";
 
 const TIMEFRAMES = [
+  { label: "5s", tf: "second", agg: 5, secs: 5 },
   { label: "1m", tf: "minute", agg: 1, secs: 60 },
   { label: "5m", tf: "minute", agg: 5, secs: 300 },
   { label: "15m", tf: "minute", agg: 15, secs: 900 },
@@ -26,6 +27,7 @@ const TIMEFRAMES = [
   { label: "4h", tf: "hour", agg: 4, secs: 14400 },
   { label: "1D", tf: "day", agg: 1, secs: 86400 },
 ] as const;
+const TF_1H = 4; // fallback index when a pool has no fine-grained history
 
 type Bar = { time: UTCTimestamp; open: number; high: number; low: number; close: number };
 
@@ -46,7 +48,7 @@ export default function CandleChart({
   const lastBarRef = useRef<Bar | null>(null);
   const entryLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
   const fellBackRef = useRef<Set<string>>(new Set());
-  const [tfIdx, setTfIdx] = useState(1); // 5m default
+  const [tfIdx, setTfIdx] = useState(0); // 5s default — this is a trading app
   const [empty, setEmpty] = useState(false);
 
   // build the chart + load candles on pool / timeframe change
@@ -116,7 +118,7 @@ export default function CandleChart({
             // this pool may simply have no fine-grained history: fall back once to 1h
             if (tf === "minute" && !fellBackRef.current.has(pairAddress)) {
               fellBackRef.current.add(pairAddress);
-              setTfIdx(3);
+              setTfIdx(TF_1H);
             } else {
               setEmpty(true);
             }
@@ -146,23 +148,46 @@ export default function CandleChart({
           })),
         );
         const last = data.candles[data.candles.length - 1];
-        lastBarRef.current = {
+        const server: Bar = {
           time: last.time as UTCTimestamp,
           open: last.open,
           high: last.high,
           low: last.low,
           close: last.close,
         };
+        // never rewind the live candle: if the bar we built from ticks is the
+        // same bucket or newer, it stays — a resync that steps back makes the
+        // chart replay the same seconds in a loop
+        const prev = lastBarRef.current;
+        if (prev && prev.time >= server.time) {
+          const keep: Bar =
+            prev.time === server.time
+              ? {
+                  time: server.time,
+                  open: server.open,
+                  high: Math.max(server.high, prev.high),
+                  low: Math.min(server.low, prev.low),
+                  close: prev.close,
+                }
+              : prev;
+          try {
+            series.update(keep);
+          } catch {
+            /* series busy — next tick repaints anyway */
+          }
+          lastBarRef.current = keep;
+        } else {
+          lastBarRef.current = server;
+        }
       } catch {
         if (!disposed) setEmpty(true);
       }
     };
 
     load();
-    // 15s resync: reads are database-only (upstream is throttled behind the
-    // store), and the server keeps building its own 1m candles from live
-    // ticks — so the chart converges on real-time between paid fetches
-    const trueUp = setInterval(load, 15_000);
+    // resync from the store (database-only reads): 10s on the 5s frame so
+    // history stays stitched, 15s elsewhere — live ticks paint between pulls
+    const trueUp = setInterval(load, tf === "second" ? 10_000 : 15_000);
 
     return () => {
       disposed = true;

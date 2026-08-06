@@ -4,7 +4,7 @@ import { isFresh, markFetchAttempt, readMerged, storeFetched } from "@/server/ca
 
 export const dynamic = "force-dynamic";
 
-const TFS = new Set(["minute", "hour", "day"]);
+const TFS = new Set(["second", "minute", "hour", "day"]);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // GLOBAL throttle: GeckoTerminal bans bursts, so upstream calls are strictly
@@ -69,6 +69,11 @@ export async function GET(req: NextRequest) {
   }
 
   const stored = await readMerged(pool, tf, agg);
+
+  // the 5s frame is built from our own ticks — there is no upstream to call
+  if (tf === "second") {
+    return NextResponse.json({ candles: stored });
+  }
 
   if (await isFresh(pool, `${tf}:${agg}`, stored.length > 0)) {
     return NextResponse.json({ candles: stored });

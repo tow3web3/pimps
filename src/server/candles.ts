@@ -18,14 +18,22 @@ export async function recordTick(pool: string, priceUsd: number): Promise<void> 
 export async function recordTicks(
   ticks: Array<{ pool: string; priceUsd: number }>,
 ): Promise<void> {
-  const bucket = Math.floor(Date.now() / 60_000) * 60;
+  const now = Date.now();
+  const bucket = Math.floor(now / 60_000) * 60;
+  const bucket5s = Math.floor(now / 5_000) * 5;
   const rows = ticks.filter((t) => t.pool && t.priceUsd > 0);
   if (rows.length === 0) return;
+  // every tick feeds two ladders: 1m (merges under upstream candles) and 5s
+  // (the pure-realtime timeframe upstream can't provide at all)
   const values = rows
-    .map(
-      (t) =>
-        `('${t.pool.replace(/'/g, "")}','self:1m',${bucket},${t.priceUsd},${t.priceUsd},${t.priceUsd},${t.priceUsd},0)`,
-    )
+    .flatMap((t) => {
+      const pool = t.pool.replace(/'/g, "");
+      const p = t.priceUsd;
+      return [
+        `('${pool}','self:1m',${bucket},${p},${p},${p},${p},0)`,
+        `('${pool}','self:5s',${bucket5s},${p},${p},${p},${p},0)`,
+      ];
+    })
     .join(",");
   await sql.query(
     `INSERT INTO candles(pool, tf_key, time, open, high, low, close, volume) VALUES ${values}
@@ -88,6 +96,26 @@ function bucketSecsOf(tfKey: string): number {
 /** stored upstream candles + own 1m ticks rolled up to the same buckets */
 export async function readMerged(pool: string, tf: string, agg: number): Promise<Candle[]> {
   await ensureSchema();
+
+  // the 5s frame is 100% self-built — upstream has no such granularity
+  if (tf === "second") {
+    const rows = (await sql`
+      SELECT time, open, high, low, close, volume FROM candles
+      WHERE pool = ${pool} AND tf_key = 'self:5s'
+      ORDER BY time DESC LIMIT 360
+    `) as Row[];
+    return rows
+      .map((r) => ({
+        time: Number(r.time),
+        open: Number(r.open),
+        high: Number(r.high),
+        low: Number(r.low),
+        close: Number(r.close),
+        volume: Number(r.volume),
+      }))
+      .reverse();
+  }
+
   const tfKey = `${tf}:${agg}`;
   const rows = (await sql`
     SELECT tf_key, time, open, high, low, close, volume FROM candles
@@ -128,7 +156,21 @@ export async function readMerged(pool: string, tf: string, agg: number): Promise
   for (const [t, c] of buckets) byTime.set(t, c);
   for (const c of stored) byTime.set(c.time, c);
 
-  return [...byTime.values()].sort((a, b) => a.time - b.time).slice(-350);
+  const merged = [...byTime.values()].sort((a, b) => a.time - b.time);
+
+  // EXCEPT the still-open bucket: the upstream copy of it is as old as the
+  // last paid fetch, so letting it win rewinds the live candle on every
+  // resync — the chart "replays" the same seconds in a loop. The freshest
+  // close always comes from our own ticks.
+  const lastM = merged[merged.length - 1];
+  const lastSelf = lastM ? buckets.get(lastM.time) : undefined;
+  if (lastM && lastSelf) {
+    lastM.high = Math.max(lastM.high, lastSelf.high);
+    lastM.low = Math.min(lastM.low, lastSelf.low);
+    lastM.close = lastSelf.close;
+  }
+
+  return merged.slice(-350);
 }
 
 /** housekeeping, called from the cron route */
@@ -136,6 +178,11 @@ export async function pruneCandles(): Promise<void> {
   await sql`
     DELETE FROM candles WHERE tf_key = 'self:1m' AND time < ${Math.floor(
       (Date.now() - SELF_RETENTION_MS) / 1000,
+    )}
+  `;
+  await sql`
+    DELETE FROM candles WHERE tf_key = 'self:5s' AND time < ${Math.floor(
+      (Date.now() - 6 * 3600_000) / 1000,
     )}
   `;
   await sql`DELETE FROM mark_wanted WHERE wanted_at < ${Date.now() - 30 * 60_000}`;
