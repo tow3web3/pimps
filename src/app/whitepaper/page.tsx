@@ -21,8 +21,8 @@ const SECTIONS = [
   ["accounts", "accounts & integrity"],
   ["infra", "price infrastructure"],
   ["stack", "the stack"],
-  ["funded", "funded accounts"],
-  ["payouts", "withdrawals & payouts"],
+  ["funded", "the prize"],
+  ["payouts", "payouts"],
   ["token", `the ${RULES.token.symbol} token`],
   ["limits", "limits & risks"],
   ["verify", "verifying this document"],
@@ -105,9 +105,9 @@ export default async function Whitepaper() {
             trading — to Solana memecoins minted through pump.fun. A trader pays a fixed entry fee,
             receives a simulated {RULES.startBalance} SOL stack, and trades live market prices
             through three consecutive challenges of rising difficulty (
-            {RULES.phases.map((p) => p.gainLabel).join(", ")}). Clearing all three unlocks a funded
-            account worth {RULES.fundedMultiple}x the entry fee on an{" "}
-            {RULES.profitSplit * 100}/{100 - RULES.profitSplit * 100} profit split.
+            {RULES.phases.map((p) => p.gainLabel).join(", ")}). Clearing all three pays a fixed cash
+            prize of {RULES.fundedMultiple}x the entry fee, in USDC, straight to the trader&apos;s
+            wallet.
           </p>
           <p className="mt-4">
             The design goal is a market where skill is separable from capital and from
@@ -258,7 +258,7 @@ export default async function Whitepaper() {
             Visitors without a wallet can still play the whole gauntlet locally, in the browser, so
             the product can be evaluated without signing anything. That local run is a
             demonstration: it is not recorded, it is trivially modifiable by whoever is running it,
-            and it can never qualify for a funded account. Only server-side runs count.
+            and it can never qualify for a prize. Only server-side runs count.
           </Callout>
 
           <H2 id="infra">price infrastructure</H2>
@@ -309,56 +309,49 @@ export default async function Whitepaper() {
             the landing page and this document all follow. Nothing here is hand-copied.
           </p>
 
-          <H2 id="funded">funded accounts</H2>
+          <H2 id="funded">the prize</H2>
           <p>
-            Clearing challenge 03 unlocks a funded account, traded on a {RULES.profitSplit * 100}/
-            {100 - RULES.profitSplit * 100} profit split in the trader&apos;s favor and settled in
-            USDC. Two entry tiers, one gauntlet:
+            Clearing all three challenges pays a <b className="text-[var(--ink)]">fixed cash
+            prize</b> in USDC, sent straight to the wallet you signed in with. There is no funded
+            account to manage and no profit share — you win, the firm pays, it is over. Two entry
+            tiers, one gauntlet:
           </p>
           <div className="glass p-5 mt-5">
-            <Row k="free roll" v={`$0 entry → $${RULES.freeRewardUsd} funded account`} />
+            <Row k="free roll" v={`$0 entry → $${RULES.freeRewardUsd} prize`} />
             <Row
               k="standard"
-              v={`$${RULES.entryFeeUsd} entry ($${entryFeeGfUsd()} in ${RULES.token.symbol}) → $${fundedAccountUsd()} funded — ${RULES.fundedMultiple}x`}
+              v={`$${RULES.entryFeeUsd} entry ($${entryFeeGfUsd()} in ${RULES.token.symbol}) → $${fundedAccountUsd()} prize — ${RULES.fundedMultiple}x`}
             />
           </div>
           <p className="mt-4">
             The rules are identical in both tiers — same targets, same floor, same fills minimum.
             The free roll exists so the gauntlet can be attempted without spending anything; the
-            reward scales with the entry, not the difficulty. The evaluation you passed is the
-            risk model the funded account inherits: same exposure cap, same drawdown discipline.
+            prize scales with the entry, not the difficulty.
           </p>
           <p className="mt-4">
-            The funded account is <b className="text-[var(--ink)]">the firm&apos;s capital, and it
-            stays with the firm</b>. It is never transferred to the trader&apos;s wallet: it is a
-            balance on this platform, traded on the same engine, under the same exposure cap and a
-            drawdown floor at half the principal. Blowing it closes the account and costs the
-            trader nothing beyond the entry already paid.
+            The economics are a prop-firm classic: the prize is {RULES.fundedMultiple}x the entry,
+            so the pool of entry fees is only solvent if fewer than one attempt in{" "}
+            {RULES.fundedMultiple} clears all three. The targets ({" "}
+            {RULES.phases.map((p) => p.gainLabel).join(", ")} back to back, under the drawdown floor
+            and the exposure cap) are set to make that the case. Most attempts fail, by design.
           </p>
 
-          <H2 id="payouts">withdrawals &amp; payouts</H2>
+          <H2 id="payouts">payouts</H2>
           <p>
-            Only <b className="text-[var(--ink)]">realized profit above the principal</b> can be
-            withdrawn — the capital itself never leaves. On a withdrawal the profit is split at the
-            published rate and the trader&apos;s share is sent in USDC to the wallet they signed in
-            with.
+            The prize is paid automatically from a dedicated payout wallet — deliberately not the
+            treasury — to the address you signed in with, after a short safety window.
           </p>
           <div className="glass p-5 mt-5">
-            <Row k="withdrawable" v="cash above the funded principal, realized (not unrealized)" />
-            <Row
-              k="split"
-              v={`${RULES.profitSplit * 100}% trader / ${100 - RULES.profitSplit * 100}% firm, applied at withdrawal`}
-            />
-            <Row k="minimum" v="$5 of realized profit" />
-            <Row k="safety delay" v="24h between request and payment" />
-            <Row k="concurrency" v="one pending withdrawal at a time" />
+            <Row k="prize" v={`fixed: $${RULES.freeRewardUsd} (free) or $${fundedAccountUsd()} (paid)`} />
+            <Row k="destination" v="the wallet you signed in with" />
+            <Row k="safety delay" v="24h between winning and payment" />
             <Row k="daily ceiling" v="configurable cap on automated payouts per rolling 24h" />
+            <Row k="idempotent" v="one prize per winning run, guarded by the run id" />
           </div>
           <p className="mt-4">
-            The requested amount is deducted from the account the moment the request is recorded, so
-            the same profit cannot be withdrawn twice. Payment is then made automatically from a
-            dedicated payout wallet holding a working float — deliberately not the treasury — and
-            the delay and the ceiling exist so an anomaly can be caught before money moves rather
+            The prize is recorded against the winning run the instant challenge 03 is cleared, and a
+            unique constraint on the run means a replay or a double-submit can never pay it twice.
+            The delay and the ceiling exist so an anomaly can be caught before money moves rather
             than after.
           </p>
           <Callout title="preview build">
