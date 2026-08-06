@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { attachPayoutWallet, useAuth } from "@/lib/authClient";
 import Link from "next/link";
 import { useGame } from "@/lib/store";
 import { useMarketFeed } from "@/lib/market";
@@ -57,6 +58,70 @@ function EquityCurve() {
   );
 }
 
+function PayoutWalletCard() {
+  const acct = useAuth((s) => s.wallet);
+  const [current, setCurrent] = useState<string | null>(null);
+  const [addr, setAddr] = useState("");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (!acct?.startsWith("em:")) return;
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((j) => setCurrent(j.payoutWallet ?? null))
+      .catch(() => {});
+  }, [acct]);
+
+  if (!acct?.startsWith("em:")) return null;
+
+  const save = async () => {
+    setState("saving");
+    try {
+      await attachPayoutWallet(addr.trim());
+      setCurrent(addr.trim());
+      setAddr("");
+      setState("saved");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "could not save");
+      setState("error");
+    }
+  };
+
+  return (
+    <div className="glass p-5 !border-[rgba(255,82,0,0.35)]">
+      <div className="flex items-center justify-between">
+        <span className="panel-title !text-[var(--heat-deep)]">payout wallet</span>
+        {current && <span className="chip !text-[var(--up)]">✓ attached</span>}
+      </div>
+      <p className="mono text-[11px] text-[var(--ink-2)] mt-2">
+        {current
+          ? `prizes are sent to ${current.slice(0, 6)}…${current.slice(-6)}`
+          : "you signed in with email — add the Solana address that should receive your prize money"}
+      </p>
+      <div className="flex gap-2 mt-3">
+        <input
+          value={addr}
+          onChange={(e) => setAddr(e.target.value)}
+          placeholder={current ? "replace with another address" : "your Solana address"}
+          className="field !text-[12px] !py-2 flex-1"
+        />
+        <button
+          onClick={save}
+          disabled={state === "saving" || addr.trim().length < 32}
+          className="btn btn-cyan !px-4 shrink-0"
+        >
+          {state === "saving" ? "…" : "save"}
+        </button>
+      </div>
+      {state === "saved" && (
+        <p className="mono text-[10px] text-up mt-2">✓ saved — pending prizes re-pointed too</p>
+      )}
+      {state === "error" && <p className="mono text-[10px] text-down mt-2">✕ {err}</p>}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   useMarketFeed();
   const game = useGame();
@@ -90,6 +155,7 @@ export default function DashboardPage() {
       <TopBar />
 
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 space-y-4">
+        <PayoutWalletCard />
         {/* the gauntlet */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {RULES.phases.map((p, i) => {

@@ -68,6 +68,12 @@ export async function accountLabel(acct: string): Promise<string | null> {
   return (rows[0]?.email as string) ?? null;
 }
 
+/** where this account's money goes — null when nothing is attached yet */
+export async function payoutWalletOf(acct: string): Promise<string | null> {
+  const rows = (await sql`SELECT payout_wallet FROM users WHERE wallet = ${acct}`) as Row[];
+  return (rows[0]?.payout_wallet as string) ?? null;
+}
+
 /** attach/replace the payout destination; re-points pending prize payouts */
 export async function setPayoutWallet(acct: string, wallet: string): Promise<void> {
   await sql`UPDATE users SET payout_wallet = ${wallet} WHERE wallet = ${acct}`;

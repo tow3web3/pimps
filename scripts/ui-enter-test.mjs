@@ -66,8 +66,13 @@ if (LANE !== "default") {
   await new Promise((r) => setTimeout(r, 400));
 }
 await p.evaluate(() => {
+  // headless can't drive the Privy modal — take the direct-wallet fallback
+  // link when present, else the plain CTA
+  const direct = [...document.querySelectorAll("button")].find((b) =>
+    b.textContent.includes("connect your browser wallet directly"),
+  );
   const cta = [...document.querySelectorAll("button")].find((b) => b.className.includes("btn-heat") && b.closest("main"));
-  cta?.click();
+  (direct ?? cta)?.click();
 });
 // wait for either navigation to /terminal or receipt lines
 for (let i = 0; i < 20; i++) {

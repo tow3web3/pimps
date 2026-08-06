@@ -112,6 +112,41 @@ export default function GameOverlays() {
     );
   }
 
+  // a challenge was just secured — one loud moment, then straight back to work
+  if (game.justCleared && game.status === "active") {
+    const clearedNum = game.justCleared; // 1-based
+    const next = RULES.phases[game.phase];
+    const prize =
+      game.tier === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple;
+    return (
+      <div className="overlay">
+        <div className="overlay-card glass max-w-md w-full mx-4 p-8 text-center !border-[rgba(0,214,143,0.5)]">
+          <p className="panel-title !text-[var(--up)]">challenge 0{clearedNum} cleared ✓</p>
+          <h2 className="mono text-3xl font-bold mt-3 text-up">
+            {clearedNum} / {RULES.phases.length} DOWN
+          </h2>
+          <p className="mono text-xs text-[var(--ink-2)] mt-4 leading-relaxed">
+            pass secured at market. your stack resets to {RULES.startBalance} SOL for{" "}
+            <b className="text-[var(--ink)]">challenge 0{next?.num}</b> — target {next?.gainLabel} (
+            {RULES.startBalance} → {next?.target} SOL), same floor, {RULES.minTrades} fills
+            minimum.
+          </p>
+          <p className="mono text-[12px] mt-4 text-[var(--heat-deep)] font-bold">
+            {RULES.phases.length - clearedNum === 1
+              ? `one challenge left between you and $${prize}`
+              : `${RULES.phases.length - clearedNum} challenges left to the $${prize}`}
+          </p>
+          <button
+            onClick={() => game.dismissCleared()}
+            className="btn btn-buy w-full py-3.5 mt-6"
+          >
+            start challenge 0{next?.num} ▸
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (game.status === "funded") {
     const isFree = game.tier === "free";
     const reward = game.prize?.usd ?? (isFree ? RULES.freeRewardUsd : fundedAccountUsd());

@@ -129,6 +129,9 @@ interface GameState {
   markToMarket: (prices: Record<string, { priceSol: number }>) => void;
   /** liquidate everything and clear the phase (only valid once target + min trades are met) */
   securePass: (prices: Record<string, { priceSol: number }>) => TradeResult | Promise<TradeResult>;
+  /** phase number (1-based) that was JUST cleared — drives the celebration */
+  justCleared: number | null;
+  dismissCleared: () => void;
   hydrateServer: (payload: ServerStatePayload) => void;
   leaveServerMode: () => void;
   /** from the "passed" screen into the next phase */
@@ -380,6 +383,9 @@ export const useGame = create<GameState>()(
         set({ equity, peakEquity, equitySeries: series });
       },
 
+      justCleared: null,
+      dismissCleared: () => set({ justCleared: null }),
+
       securePass: (prices) => {
         const s = get();
         if (s.serverMode) return serverCall("/api/game/securepass");
@@ -460,8 +466,14 @@ export const useGame = create<GameState>()(
         };
 
         if (p.run) {
+          // a phase jump means the pass was just secured — celebrate once
+          const cleared =
+            s.serverMode && s.status === "active" && p.run.phase > s.phase
+              ? p.run.phase // 1-based: phase index 1 = challenge 01 cleared
+              : s.justCleared;
           // only active challenge runs exist now — there is no funded account
           set({
+            justCleared: cleared,
             serverMode: true,
             status: "active",
             phase: p.run.phase,
