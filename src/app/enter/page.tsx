@@ -125,6 +125,13 @@ export default function EnterPage() {
           timers.current.push(setTimeout(() => router.push("/terminal"), 700));
           return;
         }
+        // session didn't stick (strict-cookie browser) — a free roll should
+        // never dead-end, so fall through to the local preview and get them in
+        if (method === "free" && /not authenticated/i.test(r.error ?? "")) {
+          setLines((l) => [...l, "opening in preview mode…"]);
+          runSimulated("free");
+          return;
+        }
         throw new Error(r.error);
       }
       setLines((l) => [...l, "✓ seat confirmed — the server is watching your run"]);
