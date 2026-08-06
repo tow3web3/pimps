@@ -34,8 +34,12 @@ const stepsFor = (m: Method): Array<{ text: string; ms: number }> =>
 export default function EnterPage() {
   const router = useRouter();
   const game = useGame();
-  const [method, setMethod] = useState<Method>("gf");
+  // default to the one lane that can ALWAYS proceed — before the token
+  // launches the $GF lane is locked, and a dead default button reads as
+  // "the site is broken", not "the token isn't out yet"
+  const [method, setMethod] = useState<Method>("free");
   const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [lines, setLines] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
   const [cfg, setCfg] = useState<RuntimeConfig | null>(null);
@@ -137,8 +141,17 @@ export default function EnterPage() {
       setLines((l) => [...l, "✓ seat confirmed — the server is watching your run"]);
       timers.current.push(setTimeout(() => router.push("/terminal"), 900));
     } catch (e) {
-      setLines((l) => [...l, `✕ ${e instanceof Error ? e.message : "failed"}`]);
-      setLines((l) => [...l, "tip: you can retry, or play the preview without a wallet"]);
+      // the receipt view unmounts when processing stops, so the error must
+      // survive on the ticket view or the user sees a silent bounce-back
+      const raw = e instanceof Error ? e.message : "payment failed";
+      const friendly = /user rejected|rejected the request/i.test(raw)
+        ? "you declined the request in your wallet — nothing was sent"
+        : /insufficient|debit an account|no record of a prior credit|custom program error: 0x1\b/i.test(
+              raw,
+            )
+          ? "this wallet doesn't hold enough USDC (plus a little SOL for network fees)"
+          : raw;
+      setError(friendly);
       setProcessing(false);
     }
   };
@@ -146,6 +159,7 @@ export default function EnterPage() {
   const pay = () => {
     if (processing) return;
     setProcessing(true);
+    setError(null);
     setLines([]);
     // Every real entry — free roll included — goes through the server with a
     // connected wallet, so the account exists, the run is active and the
@@ -154,7 +168,14 @@ export default function EnterPage() {
   };
 
   // in live mode the GF lane waits for the token to exist on-chain
-  const gfUnavailable = live && method === "gf" && !gfLive;
+  const gfLocked = live && !gfLive;
+  const gfUnavailable = gfLocked && method === "gf";
+
+  // never leave the default selection on a locked lane — the CTA would be a
+  // disabled button and every click a silent nothing
+  useEffect(() => {
+    if (gfUnavailable) setMethod("usdc");
+  }, [gfUnavailable]);
 
   const usdcPrice = RULES.entryFeeUsd;
   const gfPrice = entryFeeGfUsd();
@@ -241,14 +262,22 @@ export default function EnterPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mt-10">
                 {tickets.map((t) => {
                   const on = method === t.m;
+                  const locked = t.m === "gf" && gfLocked;
                   return (
                     <button
                       key={t.m}
-                      onClick={() => setMethod(t.m)}
+                      disabled={locked}
+                      title={locked ? "opens at token launch" : undefined}
+                      onClick={() => {
+                        setMethod(t.m);
+                        setError(null);
+                      }}
                       className={`relative p-6 text-left rounded-[4px] border-2 transition-all duration-150 ${
                         on
                           ? "card-brut card-heat border-[var(--ink)] -translate-y-0.5"
-                          : "border-[var(--border)] bg-transparent hover:border-[var(--ink)]"
+                          : locked
+                            ? "border-[var(--border)] bg-transparent opacity-50 cursor-not-allowed"
+                            : "border-[var(--border)] bg-transparent hover:border-[var(--ink)]"
                       }`}
                     >
                       {t.badge && (
@@ -279,7 +308,7 @@ export default function EnterPage() {
                           on ? "text-[var(--heat-deep)]" : "text-[var(--ink-3)]"
                         }`}
                       >
-                        {on ? "● selected" : "○ choose"}
+                        {locked ? "◌ at token launch" : on ? "● selected" : "○ choose"}
                       </span>
                     </button>
                   );
@@ -308,6 +337,15 @@ export default function EnterPage() {
                   <span className="btn-arrow">→</span>
                 </button>
               </div>
+              {error && (
+                <div className="max-w-md mx-auto mt-5 border-2 border-[var(--down)] rounded-[4px] px-4 py-3 bg-[rgba(207,59,49,0.07)]">
+                  <p className="mono text-[12px] text-[var(--down)]">✕ {error}</p>
+                  <p className="mono text-[10px] text-[var(--ink-3)] mt-1.5">
+                    you can retry, pick another lane, or take the free roll — it needs no funds at
+                    all
+                  </p>
+                </div>
+              )}
               <p className="mono text-[10px] text-[var(--ink-3)] mt-4 text-center">
                 {live && method !== "free"
                   ? "live payment · phantom will ask you to sign a real usdc transfer on solana"

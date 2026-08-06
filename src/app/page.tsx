@@ -55,8 +55,38 @@ export default function Landing() {
         </nav>
       </header>
 
+      {/* ── slogan marquee — the opening statement ───────────── */}
+      <div className="band border-b-2 border-[var(--ink)] overflow-hidden py-2">
+        <div className="tape-track tape-slow">
+          {[0, 1].map((copy) => (
+            <span key={copy} className="inline-flex items-center">
+              {SLOGANS.map((s, i) => (
+                <span key={`${copy}-${i}`} className="inline-flex items-center">
+                  <span
+                    className={`px-5 text-[17px] md:text-[21px] ${
+                      i % 2 === 1 ? "serif text-[var(--heat)]" : "display outline-text"
+                    }`}
+                    style={
+                      i % 2 === 1
+                        ? undefined
+                        : ({
+                            "--outline-c": "#f2efe6",
+                            WebkitTextStrokeWidth: "1px",
+                          } as React.CSSProperties)
+                    }
+                  >
+                    {s}
+                  </span>
+                  <span className="text-[var(--heat)] text-sm">✦</span>
+                </span>
+              ))}
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* ── HERO ─────────────────────────────────────────────── */}
-      <section className="relative min-h-[88dvh] flex flex-col">
+      <section className="relative min-h-[86dvh] flex flex-col">
         <div className="relative flex-1 flex flex-col justify-center px-5 md:px-10 py-16 max-w-6xl mx-auto w-full">
           {/* the sticker — a price tag slapped on the poster */}
           <Link
@@ -190,29 +220,6 @@ export default function Landing() {
           </Reveal>
         </div>
       </section>
-
-      {/* ── slogan marquee ───────────────────────────────────── */}
-      <div className="band border-y-2 border-[var(--ink)] overflow-hidden py-4 mt-8">
-        <div className="tape-track tape-slow">
-          {[0, 1].map((copy) => (
-            <span key={copy} className="inline-flex items-center">
-              {SLOGANS.map((s, i) => (
-                <span key={`${copy}-${i}`} className="inline-flex items-center">
-                  <span
-                    className={`px-6 text-[26px] md:text-[34px] ${
-                      i % 2 === 1 ? "serif text-[var(--heat)]" : "display outline-text"
-                    }`}
-                    style={i % 2 === 1 ? undefined : ({ "--outline-c": "#f2efe6" } as React.CSSProperties)}
-                  >
-                    {s}
-                  </span>
-                  <span className="text-[var(--heat)] text-xl">✦</span>
-                </span>
-              ))}
-            </span>
-          ))}
-        </div>
-      </div>
 
       {/* ── 02 · HOUSE RULES ─────────────────────────────────── */}
       <section id="rules" className="max-w-6xl mx-auto px-5 md:px-10 pt-24 pb-24">
