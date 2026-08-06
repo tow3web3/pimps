@@ -48,11 +48,10 @@ export default function Terms() {
           acquires, holds or disposes of the tokens displayed in the interface.
         </p>
         <p className="mt-3">
-          Participants who complete all {RULES.phases.length} challenges are offered a{" "}
-          <b className="text-[var(--ink)]">funded account</b>: an allocation of the operator&apos;s
-          own capital, held and traded on this platform, from which the participant may withdraw a
-          share of realized profits. The allocation itself is never transferred to the participant
-          and remains the property of the operator at all times.
+          Participants who complete all {RULES.phases.length} challenges receive a{" "}
+          <b className="text-[var(--ink)]">fixed cash prize</b> in USDC, sent to the wallet they
+          signed in with. The prize is a reward for completing the evaluation, not a return on an
+          investment and not a share of any trading activity.
         </p>
 
         <H2>2. This is not investment or brokerage activity</H2>
@@ -109,17 +108,16 @@ export default function Terms() {
           ))}
         </ul>
 
-        <H2>7. Funded accounts and withdrawals</H2>
+        <H2>7. The prize and payouts</H2>
         <p className="mt-3">
-          Only realized profit above the funded principal is withdrawable, split at the published
-          rate, paid in USDC to the wallet used to sign in. Withdrawals are subject to a minimum, a
-          delay between request and payment, and a ceiling per period — all published on the
-          whitepaper. The operator may withhold a payment pending review where section 6 conduct is
-          suspected, and will state the reason.
+          The prize is a fixed amount — {fundedAccountUsd() / RULES.entryFeeUsd}x the entry — paid in
+          USDC to the wallet used to sign in, after a delay between winning and payment, and subject
+          to a ceiling per period, both published on the whitepaper. The operator may withhold a
+          payment pending review where section 6 conduct is suspected, and will state the reason.
         </p>
         <p className="mt-3">
-          A funded account is closed if its drawdown floor is breached. Closure costs the
-          participant nothing beyond fees already paid.
+          A run that breaches the drawdown floor or its time window ends with no prize. It costs the
+          participant nothing beyond the entry fee already paid.
         </p>
 
         <H2>8. Availability</H2>
@@ -142,7 +140,7 @@ export default function Terms() {
         <div className="glass !border-[rgba(251,113,133,0.35)] p-5 mt-4">
           <ul className="space-y-2.5 text-[13px]">
             {[
-              `Memecoins are extremely volatile. Most challenge attempts fail. A ${fundedAccountUsd() / RULES.entryFeeUsd}x funded account is an uncommon outcome, not an expected one.`,
+              `Memecoins are extremely volatile. Most challenge attempts fail. Winning the ${fundedAccountUsd() / RULES.entryFeeUsd}x prize is an uncommon outcome, not an expected one.`,
               "Simulated results do not prove that the same size could have been executed on-chain at the same price.",
               "Past results, yours or anyone else's, predict nothing.",
               "Never pay an entry fee with money you cannot afford to lose entirely.",

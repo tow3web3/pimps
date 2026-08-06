@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "a challenge is already active" }, { status: 400 });
   }
   if (await activeFunded(wallet)) {
-    return NextResponse.json({ error: "your funded account is active — trade it" }, { status: 400 });
+    return NextResponse.json({ error: "you already have an active run" }, { status: 400 });
   }
 
   try {

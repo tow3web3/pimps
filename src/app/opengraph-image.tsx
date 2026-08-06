@@ -9,7 +9,7 @@ export const alt = `${BRAND} — trade memecoins, get funded`;
 export default function OG() {
   // satori treats each interpolation as a child node: every text element must
   // receive exactly ONE pre-built string
-  const pitch = `${RULES.startBalance} SOL demo stack on live pump.fun markets. Clear ${RULES.phases.length} challenges, trade a $${fundedAccountUsd()} funded account.`;
+  const pitch = `${RULES.startBalance} SOL demo stack on live pump.fun markets. Clear ${RULES.phases.length} challenges, win $${fundedAccountUsd()} sent to your Phantom.`;
   const chips = [
     RULES.phases.map((p) => p.gainLabel).join("  ·  "),
     `max ${RULES.maxExposure * 100}% / token`,

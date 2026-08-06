@@ -15,10 +15,10 @@ const jbmono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: `${BRAND} — memecoin prop firm`,
-  description: `${TAGLINE} — pass 3 challenges on live pump.fun prices with a simulated 10 SOL stack and unlock a funded account.`,
+  description: `${TAGLINE} — pass 3 challenges on live pump.fun prices with a simulated 10 SOL stack and win a $300 cash prize.`,
   openGraph: {
     title: `${BRAND} — trade memecoins. get funded.`,
-    description: `Clear 3 challenges on a 10 SOL demo stack against live pump.fun markets and trade a funded account.`,
+    description: `Clear 3 challenges on a 10 SOL demo stack against live pump.fun markets and win a $300 cash prize.`,
     type: "website",
   },
   twitter: { card: "summary_large_image" },

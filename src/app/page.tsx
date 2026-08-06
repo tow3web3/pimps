@@ -112,7 +112,7 @@ export default function Landing() {
               <p className="text-[12px] text-[var(--ink-2)] mt-4 leading-relaxed">
                 {p.num === 1 && "Prove you can read the market without blowing up."}
                 {p.num === 2 && "Double the stack. Consistency starts to matter more than luck."}
-                {p.num === 3 && "The final wall. Clear it and you trade our money, not yours."}
+                {p.num === 3 && "The final wall. Clear it and the firm pays you $300, cash."}
               </p>
             </div>
           ))}
@@ -198,8 +198,8 @@ export default function Landing() {
                   live on-chain data from Solana DEXes, tick by tick.
                 </li>
                 <li className="flex gap-2.5">
-                  <span className="text-up shrink-0">✓</span> The funded account you unlock, and
-                  the USDC profits it pays out.
+                  <span className="text-up shrink-0">✓</span> The ${funded} cash prize the firm
+                  sends to your wallet when you clear all three.
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-up shrink-0">✓</span> Your track record — every run is
@@ -273,7 +273,7 @@ export default function Landing() {
           <span className="mono text-[12px] text-left">
             <span className="text-up font-bold">free roll — $0 entry.</span>{" "}
             <span className="text-[var(--ink-2)]">
-              same gauntlet, ${RULES.freeRewardUsd} funded account.
+              same gauntlet, ${RULES.freeRewardUsd} cash prize.
             </span>
           </span>
           <span className="mono text-[var(--up)]">▸</span>
