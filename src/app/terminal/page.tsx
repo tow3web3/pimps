@@ -38,7 +38,7 @@ export default function TerminalPage() {
 
   if (!mounted) {
     return (
-      <div className="h-dvh flex items-center justify-center">
+      <div className="paper h-dvh flex items-center justify-center">
         <span className="mono text-xs tracking-[0.3em] text-[var(--ink-3)] animate-pulse">
           BOOTING TERMINAL…
         </span>
@@ -68,7 +68,7 @@ export default function TerminalPage() {
   );
 
   return (
-    <div className="h-dvh flex flex-col">
+    <div className="paper h-dvh flex flex-col">
       <TopBar />
 
       {/* ── desktop ── */}
@@ -87,10 +87,21 @@ export default function TerminalPage() {
             <PositionsPanel />
           </div>
         </div>
+        {/* trade first, and every panel shrink-0: in a fixed-height flex
+            column the panels otherwise COMPRESS instead of scrolling, and
+            overflow-hidden silently clips the buy button off the bottom */}
         <div className="flex flex-col gap-3 min-h-0 overflow-y-auto">
-          <ChallengeHUD />
-          <TradePanel />
-          {token && <TokenInfoPanel mint={token.mint} />}
+          <div className="shrink-0">
+            <TradePanel />
+          </div>
+          <div className="shrink-0">
+            <ChallengeHUD />
+          </div>
+          {token && (
+            <div className="shrink-0">
+              <TokenInfoPanel mint={token.mint} />
+            </div>
+          )}
         </div>
       </main>
 
@@ -120,7 +131,9 @@ export default function TerminalPage() {
         )}
         {tab === "stats" && (
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
-            <ChallengeHUD />
+            <div className="shrink-0">
+              <ChallengeHUD />
+            </div>
             <div className="h-[260px] shrink-0 flex flex-col min-h-0">
               <PositionsPanel />
             </div>

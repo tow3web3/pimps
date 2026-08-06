@@ -86,7 +86,7 @@ export default function TokenInfoPanel({ mint }: { mint: string }) {
         {loading && (
           <div className="p-4 space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-6 rounded bg-[rgba(242,239,230,0.05)] animate-pulse" />
+              <div key={i} className="h-6 rounded bg-[rgba(19,17,16,0.05)] animate-pulse" />
             ))}
           </div>
         )}

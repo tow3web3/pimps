@@ -14,8 +14,9 @@ import {
 import type { Candle } from "@/lib/types";
 import { pricePrecision } from "@/lib/format";
 
-const UP = "#00d68f";
-const DOWN = "#ff5252";
+// paper-terminal palette: deep up/down inks that hold on the bone surface
+const UP = "#0a8f55";
+const DOWN = "#cf3b31";
 
 const TIMEFRAMES = [
   { label: "1m", tf: "minute", agg: 1, secs: 60 },
@@ -58,19 +59,19 @@ export default function CandleChart({
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#5b6580",
+        textColor: "#8d8778",
         fontFamily: "var(--font-jbmono), monospace",
         fontSize: 11,
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: "rgba(242,239,230,0.05)" },
-        horzLines: { color: "rgba(242,239,230,0.05)" },
+        vertLines: { color: "rgba(19,17,16,0.06)" },
+        horzLines: { color: "rgba(19,17,16,0.06)" },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: "rgba(255,90,0,0.4)", labelBackgroundColor: "#0d1120" },
-        horzLine: { color: "rgba(255,90,0,0.4)", labelBackgroundColor: "#0d1120" },
+        vertLine: { color: "rgba(255,82,0,0.45)", labelBackgroundColor: "#131110" },
+        horzLine: { color: "rgba(255,82,0,0.45)", labelBackgroundColor: "#131110" },
       },
       rightPriceScale: { borderVisible: false },
       timeScale: {
@@ -87,8 +88,8 @@ export default function CandleChart({
       downColor: DOWN,
       borderUpColor: UP,
       borderDownColor: DOWN,
-      wickUpColor: "rgba(0,214,143,0.7)",
-      wickDownColor: "rgba(255,82,82,0.7)",
+      wickUpColor: "rgba(10,143,85,0.75)",
+      wickDownColor: "rgba(207,59,49,0.75)",
     });
     seriesRef.current = series;
 
@@ -141,7 +142,7 @@ export default function CandleChart({
           data.candles.map((c) => ({
             time: c.time as UTCTimestamp,
             value: c.volume,
-            color: c.close >= c.open ? "rgba(0,214,143,0.28)" : "rgba(255,82,82,0.28)",
+            color: c.close >= c.open ? "rgba(10,143,85,0.3)" : "rgba(207,59,49,0.3)",
           })),
         );
         const last = data.candles[data.candles.length - 1];
@@ -158,9 +159,10 @@ export default function CandleChart({
     };
 
     load();
-    // 30s: candles stay honest without eating the shared GeckoTerminal quota —
-    // the live tick paints the current bar between resyncs anyway
-    const trueUp = setInterval(load, 30_000);
+    // 15s resync: reads are database-only (upstream is throttled behind the
+    // store), and the server keeps building its own 1m candles from live
+    // ticks — so the chart converges on real-time between paid fetches
+    const trueUp = setInterval(load, 15_000);
 
     return () => {
       disposed = true;
@@ -189,7 +191,7 @@ export default function CandleChart({
     try {
       entryLineRef.current = series.createPriceLine({
         price: avgEntryUsd,
-        color: "#ffa26b",
+        color: "#d63c00",
         lineWidth: 1,
         lineStyle: 2,
         axisLabelVisible: true,

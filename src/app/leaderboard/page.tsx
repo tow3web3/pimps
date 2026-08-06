@@ -82,7 +82,7 @@ export default function LeaderboardPage() {
   const yourRank = rows.findIndex((r) => r.isYou) + 1;
 
   return (
-    <div className="min-h-dvh flex flex-col">
+    <div className="paper min-h-dvh flex flex-col">
       <TopBar />
 
       <main className="flex-1 w-full max-w-4xl mx-auto p-4 md:p-6">
@@ -189,7 +189,7 @@ export default function LeaderboardPage() {
                       className={`border-t border-[var(--border)] ${
                         r.isYou
                           ? "bg-[rgba(255,90,0,0.07)] border-l-2 border-l-[var(--cyan)]"
-                          : "hover:bg-[rgba(242,239,230,0.03)]"
+                          : "hover:bg-[rgba(19,17,16,0.03)]"
                       }`}
                     >
                       <td className="px-3 md:px-4 py-2.5 text-[var(--ink-3)]">{i + 1}</td>

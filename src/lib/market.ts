@@ -104,7 +104,7 @@ export function useMarketFeed() {
       if (stopped) return;
       await fetchPrices().catch(() => {});
       if (stopped) return;
-      timer = setTimeout(loop, useMarket.getState().source === "helius" ? 1_500 : 3_000);
+      timer = setTimeout(loop, useMarket.getState().source === "helius" ? 1_200 : 2_500);
     };
     loop();
     // fast retries until the first universe lands, then a slow 90s refresh

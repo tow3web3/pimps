@@ -53,7 +53,7 @@ function Line({ t, onPick }: { t: FeedTrade; onPick?: (mint: string) => void }) 
   return (
     <button
       onClick={() => onPick?.(t.mint)}
-      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-[rgba(242,239,230,0.05)] transition-colors"
+      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-[rgba(19,17,16,0.05)] transition-colors"
     >
       <span
         className={`mono text-[10px] px-1.5 py-0.5 rounded shrink-0 ${

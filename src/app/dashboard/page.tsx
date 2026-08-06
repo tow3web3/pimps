@@ -47,7 +47,7 @@ function EquityCurve() {
       </defs>
       {/* target / start / floor reference lines */}
       <line x1={PAD} x2={W - PAD} y1={y(target)} y2={y(target)} stroke="rgba(255,90,0,0.4)" strokeDasharray="5 5" strokeWidth="1" />
-      <line x1={PAD} x2={W - PAD} y1={y(RULES.startBalance)} y2={y(RULES.startBalance)} stroke="rgba(242,239,230,0.2)" strokeDasharray="2 5" strokeWidth="1" />
+      <line x1={PAD} x2={W - PAD} y1={y(RULES.startBalance)} y2={y(RULES.startBalance)} stroke="rgba(19,17,16,0.2)" strokeDasharray="2 5" strokeWidth="1" />
       <line x1={PAD} x2={W - PAD} y1={y(RULES.failFloor)} y2={y(RULES.failFloor)} stroke="rgba(255,82,82,0.45)" strokeDasharray="5 5" strokeWidth="1" />
       <text x={W - PAD - 4} y={y(target) - 5} textAnchor="end" className="mono" fontSize="10" fill="rgba(255,90,0,0.8)">target {fmtSol(target, 0)}</text>
       <text x={W - PAD - 4} y={y(RULES.failFloor) - 5} textAnchor="end" className="mono" fontSize="10" fill="rgba(255,82,82,0.8)">fail {fmtSol(RULES.failFloor, 1)}</text>
@@ -86,7 +86,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-dvh flex flex-col">
+    <div className="paper min-h-dvh flex flex-col">
       <TopBar />
 
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 space-y-4">

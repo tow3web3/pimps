@@ -51,11 +51,18 @@ export async function markFetchAttempt(pool: string, tfKey: string): Promise<voi
   `;
 }
 
-export async function isFresh(pool: string, tfKey: string): Promise<boolean> {
+export async function isFresh(
+  pool: string,
+  tfKey: string,
+  hasData = true,
+): Promise<boolean> {
   const rows = (await sql`
     SELECT fetched_at FROM candle_meta WHERE key = ${`${pool}:${tfKey}`}
   `) as Row[];
-  return rows.length > 0 && Date.now() - Number(rows[0].fetched_at) < REFRESH_MS;
+  // an EMPTY pool only earns a short cooldown — 10 minutes of blank chart
+  // because one upstream call 429'd reads as "the charts are broken"
+  const ttl = hasData ? REFRESH_MS : 90_000;
+  return rows.length > 0 && Date.now() - Number(rows[0].fetched_at) < ttl;
 }
 
 function bucketSecsOf(tfKey: string): number {

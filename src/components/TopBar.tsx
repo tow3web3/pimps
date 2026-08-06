@@ -20,7 +20,7 @@ export default function TopBar() {
     <header className="glass !rounded-none !border-x-0 !border-t-0 flex items-center gap-2 sm:gap-4 px-2 sm:px-4 h-[52px] shrink-0 z-40 overflow-hidden">
       <Link href="/" className="flex items-center gap-2 group shrink-0">
         <span className="w-2 h-2 rotate-45 bg-[var(--cyan)] group-hover: transition-shadow" />
-        <span className="mono font-bold tracking-[0.18em] sm:tracking-[0.3em] text-[11px] sm:text-sm">
+        <span className="display text-[13px] sm:text-lg tracking-tight">
           {BRAND}
         </span>
       </Link>

@@ -55,7 +55,7 @@ export default function ChallengeHUD() {
                   ? "bg-[var(--up)]"
                   : i === game.phase
                     ? "bg-[var(--cyan)]"
-                    : "bg-[rgba(242,239,230,0.15)]"
+                    : "bg-[rgba(19,17,16,0.15)]"
               }`}
             />
           ))}

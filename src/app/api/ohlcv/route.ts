@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 
   const stored = await readMerged(pool, tf, agg);
 
-  if (await isFresh(pool, `${tf}:${agg}`)) {
+  if (await isFresh(pool, `${tf}:${agg}`, stored.length > 0)) {
     return NextResponse.json({ candles: stored });
   }
 
