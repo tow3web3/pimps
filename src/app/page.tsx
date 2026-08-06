@@ -134,7 +134,7 @@ export default function Landing() {
             style={{ animationDelay: "0.95s" }}
           >
             <Link href="/enter" className="btn-heat !text-[17px] !px-8 !py-4">
-              Start the gauntlet <span className="btn-arrow">→</span>
+              Start challenge 01 <span className="btn-arrow">→</span>
             </Link>
             <a href="#gauntlet" className="link-und text-[15px]">
               how it works <span className="btn-arrow">↓</span>
@@ -147,7 +147,7 @@ export default function Landing() {
           >
             {[
               [`${RULES.startBalance} SOL`, "demo stack"],
-              ["3", "challenges"],
+              ["3", "available challenges"],
               [`$${funded}`, "cash prize"],
               ["$0", "at risk while trading"],
             ].map(([k, t]) => (

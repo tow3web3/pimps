@@ -247,19 +247,27 @@ export default function EnterPage() {
   const gfPrice = entryFeeGfUsd();
   const reentry = mounted && game.status === "failed";
 
+  const prizeUsd = RULES.entryFeeUsd * RULES.fundedMultiple;
+  const ddPct = ((1 - RULES.failFloor / RULES.startBalance) * 100).toFixed(0);
+  const gains = RULES.phases.map((ph) => ph.gainLabel).join(" ");
   const tickets: Array<{
     m: Method;
     label: string;
     price: string;
     was?: string;
-    copy: string;
+    points: Array<{ text: string; strong?: boolean }>;
     badge?: string;
   }> = [
     {
       m: "free",
       label: "free roll",
       price: "$0",
-      copy: `connect a wallet, no payment · same three challenges · win $${RULES.freeRewardUsd} instead of $${RULES.entryFeeUsd * RULES.fundedMultiple}`,
+      points: [
+        { text: `win $${RULES.freeRewardUsd}, cash — sent to your wallet`, strong: true },
+        { text: `3 challenges · ${gains}` },
+        { text: `${ddPct}% max drawdown · ${RULES.startBalance} SOL demo stack` },
+        { text: "no payment — sign in with email or wallet" },
+      ],
     },
     {
       m: "gf",
@@ -267,13 +275,29 @@ export default function EnterPage() {
       price: fmtUsd(gfPrice),
       was: fmtUsd(usdcPrice),
       badge: `−${RULES.token.discount * 100}%`,
-      copy: `paid in ${RULES.token.name} at market rate · every entry is burned — supply only shrinks`,
+      points: [
+        {
+          text: `win $${prizeUsd}, cash — ${Math.round(prizeUsd / gfPrice)}x your entry`,
+          strong: true,
+        },
+        { text: `3 challenges · ${gains}` },
+        { text: `${ddPct}% max drawdown · ${RULES.startBalance} SOL demo stack` },
+        { text: `every $${RULES.token.symbol} entry is burned — supply only shrinks` },
+      ],
     },
     {
       m: "usdc",
       label: "usdc classic",
       price: fmtUsd(usdcPrice),
-      copy: "plain usdc on solana · no token required",
+      points: [
+        {
+          text: `win $${prizeUsd}, cash — ${RULES.fundedMultiple}x your entry`,
+          strong: true,
+        },
+        { text: `3 challenges · ${gains}` },
+        { text: `${ddPct}% max drawdown · ${RULES.startBalance} SOL demo stack` },
+        { text: "plain USDC on Solana · no token required" },
+      ],
     },
   ];
 
@@ -366,9 +390,21 @@ export default function EnterPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-[12.5px] text-[var(--ink-2)] mt-3 leading-relaxed">
-                        {t.copy}
-                      </p>
+                      <ul className="mt-3 space-y-1.5">
+                        {t.points.map((pt) => (
+                          <li
+                            key={pt.text}
+                            className={`text-[12px] leading-snug ${
+                              pt.strong
+                                ? "font-semibold text-[var(--ink)]"
+                                : "text-[var(--ink-2)]"
+                            }`}
+                          >
+                            <span className="text-[var(--heat-deep)] mr-1">▸</span>
+                            {pt.text}
+                          </li>
+                        ))}
+                      </ul>
                       <span
                         className={`mono text-[10px] mt-4 inline-block ${
                           on ? "text-[var(--heat-deep)]" : "text-[var(--ink-3)]"
@@ -433,7 +469,7 @@ export default function EnterPage() {
                       ? "Sign in & play free — email or wallet"
                       : gfUnavailable
                         ? `$${RULES.token.symbol} lane opens at token launch`
-                        : `Sign in to pay ${fmtUsd(method === "gf" ? gfPrice : usdcPrice)}`}{" "}
+                        : `Sign in & pay ${fmtUsd(method === "gf" ? gfPrice : usdcPrice)} — email or wallet`}{" "}
                     <span className="btn-arrow">→</span>
                   </PrivyConnect>
                 ) : (

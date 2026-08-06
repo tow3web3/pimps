@@ -1,0 +1,13 @@
+import puppeteer from "puppeteer-core";
+const [S, CHROME] = process.argv.slice(2);
+const b = await puppeteer.launch({ executablePath: CHROME, headless: "new" });
+const p = await b.newPage();
+await p.setViewport({ width: 390, height: 844 });
+await p.goto("http://localhost:3333/enter", { waitUntil: "networkidle2", timeout: 45000 }).catch(() => {});
+await new Promise((r) => setTimeout(r, 3000));
+await p.screenshot({ path: `${S}/enter-mobile-v2.png`, fullPage: false });
+await p.evaluate(() => window.scrollTo({ top: 600 }));
+await new Promise((r) => setTimeout(r, 600));
+await p.screenshot({ path: `${S}/enter-mobile-v2b.png` });
+await b.close();
+console.log("done");
