@@ -17,6 +17,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid method" }, { status: 400 });
   }
 
+  // ORDER MATTERS: an active run must answer "already active" (the client
+  // routes you to your terminal) BEFORE the free-roll check — otherwise a
+  // brand-new player who just took their free seat gets told their free
+  // roll "has been used" on the very next click
+  if (await activeChallenge(wallet)) {
+    return NextResponse.json({ error: "a challenge is already active" }, { status: 400 });
+  }
+  if (await activeFunded(wallet)) {
+    return NextResponse.json({ error: "you already have an active run" }, { status: 400 });
+  }
+
   // one free roll per wallet, ever — the reward is real money, so the free
   // lane must not be a faucet you can re-open by failing on purpose
   if (method === "free") {
@@ -30,12 +41,6 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-  }
-  if (await activeChallenge(wallet)) {
-    return NextResponse.json({ error: "a challenge is already active" }, { status: 400 });
-  }
-  if (await activeFunded(wallet)) {
-    return NextResponse.json({ error: "you already have an active run" }, { status: 400 });
   }
 
   try {

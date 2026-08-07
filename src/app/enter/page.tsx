@@ -236,6 +236,11 @@ export default function EnterPage() {
 
   const pay = () => {
     if (processing) return;
+    // already seated? money must never move — straight back to the desk
+    if (authedWallet && game.serverMode && game.status === "active") {
+      router.push("/terminal");
+      return;
+    }
     if (walletId) setPreferredWallet(walletId);
     setProcessing(true);
     setError(null);
@@ -360,6 +365,19 @@ export default function EnterPage() {
 
           {!processing ? (
             <>
+              {authedWallet && game.serverMode && game.status === "active" && (
+                <button
+                  onClick={() => router.push("/terminal")}
+                  className="max-w-md mx-auto mt-6 w-full block border-2 border-[var(--up)] rounded-[4px] px-4 py-3 text-left hover:bg-[rgba(10,143,85,0.06)] transition-colors"
+                >
+                  <span className="mono text-[12px] text-up font-bold">
+                    ● you have an active run — challenge 0{game.phase + 1}
+                  </span>
+                  <span className="mono text-[11px] text-[var(--ink-2)] block mt-0.5">
+                    tap to go back to your terminal <span className="btn-arrow">→</span>
+                  </span>
+                </button>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mt-10">
                 {tickets.map((t) => {
                   const on = method === t.m;
