@@ -184,7 +184,7 @@ const Burn: React.FC = () => (
 );
 
 /* S8 — CTA */
-const Cta: React.FC = () => {
+export const Cta: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const s = spring({ frame: frame - 30, fps, config: { damping: 200 } });
@@ -233,7 +233,6 @@ const SCENES: Array<{ d: number; C: React.FC }> = [
   { d: 120, C: Intro },
   { d: 150, C: Problem },
   { d: 190, C: Offer },
-  { d: 120, C: () => <Broll file="broll/holders.mp4" /> },
   { d: 210, C: Ladder },
   { d: 170, C: Rules },
   { d: 165, C: () => <Product file="shots/landing.png" caption="One site — zero installs." serifWords={[3]} /> },
