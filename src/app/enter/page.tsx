@@ -308,13 +308,7 @@ export default function EnterPage() {
           <img src="/brand/mark.png" alt="" width={22} height={22} className="shrink-0 -mt-0.5" />
           <span className="display text-lg tracking-tight">{BRAND}</span>
         </Link>
-        {authedWallet ? (
-          <Link href="/terminal" className="link-und text-[14px]">
-            skip — already seated <span className="btn-arrow">→</span>
-          </Link>
-        ) : (
-          <span />
-        )}
+        <span />
       </header>
 
       <main className="flex-1 flex items-center justify-center px-4 pt-10 pb-16">
