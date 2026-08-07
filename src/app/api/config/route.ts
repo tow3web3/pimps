@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getConfig } from "@/server/config";
+import { getConfig, gfMarketLive } from "@/server/config";
 
 export const dynamic = "force-dynamic";
 
@@ -8,11 +8,14 @@ export const dynamic = "force-dynamic";
 // and the mint are public by nature.
 export async function GET() {
   const c = await getConfig();
+  // the CA stays PRIVATE until the token actually trades — no pre-launch
+  // sniping off our own config endpoint
+  const marketLive = await gfMarketLive(c.gfMint);
   return NextResponse.json({
     treasuryWallet: c.treasuryWallet,
-    gfMint: c.gfMint,
+    gfMint: marketLive ? c.gfMint : "",
     gfDecimals: c.gfDecimals,
     paymentsLive: c.treasuryWallet.length >= 32,
-    gfLive: c.gfMint.length >= 32 && c.treasuryWallet.length >= 32,
+    gfLive: marketLive && c.treasuryWallet.length >= 32,
   });
 }

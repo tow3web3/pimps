@@ -56,6 +56,49 @@ export async function setConfig(patch: Partial<RuntimeConfig>): Promise<void> {
     if (v === undefined || v === null) continue;
     await kvSet(`cfg:${k}`, String(v));
   }
+  // a new (or cleared) mint restarts launch detection from zero
+  if (patch.gfMint !== undefined) await kvSet("gf:marketLive", "0");
+}
+
+/* ── launch detection ────────────────────────────────────────────────────
+   The CA can be stored BEFORE the token exists. Until a real market is
+   detected the mint stays private (whitepaper + public config hide it, so
+   nobody can snipe the address pre-announcement) and the $GF lane stays
+   locked. The probe runs at most every 30s per instance, and the first
+   positive result is sticky in Postgres. */
+
+const PUMP_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
+let probeCache: { at: number; live: boolean } | null = null;
+
+export async function gfMarketLive(mint: string): Promise<boolean> {
+  if (!mint) return false;
+  if ((await kvGet("gf:marketLive")) === "1") return true;
+  if (probeCache && Date.now() - probeCache.at < 30_000) return probeCache.live;
+
+  let live = false;
+  // an indexed AMM/bonding pool with a price is the strongest signal
+  const px = await gfPriceUsd(mint);
+  if (px !== null && px > 0) live = true;
+  if (!live) {
+    // pump.fun's own record appears the second the coin is created
+    try {
+      const r = await fetch(`https://frontend-api-v3.pump.fun/coins/${mint}`, {
+        cache: "no-store",
+        headers: { accept: "application/json", "user-agent": PUMP_UA },
+      });
+      if (r.ok) {
+        const j = await r.json();
+        live = Number(j?.usd_market_cap ?? 0) > 0;
+      }
+    } catch {
+      /* probe again next window */
+    }
+  }
+
+  probeCache = { at: Date.now(), live };
+  if (live) await kvSet("gf:marketLive", "1");
+  return live;
 }
 
 /** ask the chain how many decimals the mint uses — guessing this is a money bug */

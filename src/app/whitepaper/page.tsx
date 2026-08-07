@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { BRAND, entryFeeGfUsd, fundedAccountUsd, RULES } from "@/lib/rules";
-import { getConfig } from "@/server/config";
+import { getConfig, gfMarketLive } from "@/server/config";
 
 // the mint must appear here the moment it is set in the launch console
 export const dynamic = "force-dynamic";
@@ -56,7 +56,8 @@ function Callout({ title, children }: { title: string; children: React.ReactNode
 
 export default async function Whitepaper() {
   const dd = ((1 - RULES.failFloor / RULES.startBalance) * 100).toFixed(0);
-  const { gfMint } = await getConfig();
+  const cfg = await getConfig();
+  const gfMint = (await gfMarketLive(cfg.gfMint)) ? cfg.gfMint : "";
 
   return (
     <div className="paper min-h-dvh">
