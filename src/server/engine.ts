@@ -163,6 +163,12 @@ export async function createChallengeRun(
   tier: "free" | "paid",
 ): Promise<void> {
   const last = await lastChallenge(wallet);
+
+  const freeUsedRows = (await sql`
+    SELECT COUNT(*)::int AS c FROM runs
+    WHERE wallet = ${wallet} AND tier = 'free' AND kind = 'challenge'
+  `) as Row[];
+  const freeUsed = Number(freeUsedRows[0].c) > 0;
   if (last && last.status === "active") throw new Error("a run is already active");
   const attempt = last ? last.attempt + 1 : 1;
   const now = Date.now();
@@ -417,6 +423,12 @@ export async function clientState(wallet: string) {
 
   const last = await lastChallenge(wallet);
 
+  const freeUsedRows = (await sql`
+    SELECT COUNT(*)::int AS c FROM runs
+    WHERE wallet = ${wallet} AND tier = 'free' AND kind = 'challenge'
+  `) as Row[];
+  const freeUsed = Number(freeUsedRows[0].c) > 0;
+
   // the prize: set once the most recent run cleared all three challenges
   const won = last && last.status === "funded" ? last : undefined;
   const prizeRow = won ? withdrawals.find((w) => Number(w.run_id) === won.id) : undefined;
@@ -436,6 +448,7 @@ export async function clientState(wallet: string) {
   return {
     wallet,
     prize,
+    freeUsed,
     run: shown
       ? {
           kind: shown.kind,

@@ -58,6 +58,8 @@ export interface ServerStatePayload {
     finalEquity: number;
   } | null;
   prize: { usd: number; status: string; txSig: string | null; tier: string } | null;
+  /** this account already consumed its one free roll */
+  freeUsed?: boolean;
   positions: Position[];
   trades: TradeRec[];
   withdrawals: WithdrawalRow[];
@@ -111,6 +113,8 @@ interface GameState {
   funded: FundedInfo | null;
   /** set when all three challenges are cleared — the $300 prize */
   prize: PrizeInfo | null;
+  /** one free roll per account, ever — true once it's spent */
+  freeUsed: boolean;
   serverWithdrawals: WithdrawalRow[];
   cashSol: number;
   positions: Position[];
@@ -182,6 +186,7 @@ export const useGame = create<GameState>()(
       serverMode: false,
       funded: null,
       prize: null,
+      freeUsed: false,
       serverWithdrawals: [],
       ...freshPhaseFields(),
       history: [],
@@ -474,6 +479,7 @@ export const useGame = create<GameState>()(
           // only active challenge runs exist now — there is no funded account
           set({
             justCleared: cleared,
+            freeUsed: p.freeUsed ?? s.freeUsed,
             serverMode: true,
             status: "active",
             phase: p.run.phase,

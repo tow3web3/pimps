@@ -90,6 +90,11 @@ export default function EnterPage() {
   }, []);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
+  // the account's one free roll is spent — land on a lane that can proceed
+  useEffect(() => {
+    if (authedWallet && game.freeUsed && method === "free") setMethod("usdc");
+  }, [authedWallet, game.freeUsed, method]);
+
   const live = !!cfg?.paymentsLive && getProvider() !== null;
   const gfLive = !!cfg?.gfLive;
 
@@ -171,6 +176,14 @@ export default function EnterPage() {
       // the receipt view unmounts when processing stops, so the error must
       // survive on the ticket view or the user sees a silent bounce-back
       const raw = e instanceof Error ? e.message : "payment failed";
+      if (/free roll has been used/i.test(raw)) {
+        setMethod("usdc");
+        setError(
+          "your one free roll is already used — pick a paid lane to keep playing (the $300 track)",
+        );
+        setProcessing(false);
+        return;
+      }
       const friendly = /user rejected|rejected the request/i.test(raw)
         ? "you declined the request in your wallet — nothing was sent"
         : /insufficient|debit an account|no record of a prior credit|custom program error: 0x1\b/i.test(
@@ -350,12 +363,19 @@ export default function EnterPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mt-10">
                 {tickets.map((t) => {
                   const on = method === t.m;
-                  const locked = t.m === "gf" && gfLocked;
+                  const spent = t.m === "free" && !!authedWallet && game.freeUsed;
+                  const locked = (t.m === "gf" && gfLocked) || spent;
                   return (
                     <button
                       key={t.m}
                       disabled={locked}
-                      title={locked ? "opens at token launch" : undefined}
+                      title={
+                        spent
+                          ? "one free roll per account — yours is used"
+                          : locked
+                            ? "opens at token launch"
+                            : undefined
+                      }
                       onClick={() => {
                         setMethod(t.m);
                         setError(null);
@@ -408,7 +428,13 @@ export default function EnterPage() {
                           on ? "text-[var(--heat-deep)]" : "text-[var(--ink-3)]"
                         }`}
                       >
-                        {locked ? "◌ at token launch" : on ? "● selected" : "○ choose"}
+                        {spent
+                          ? "✓ used — one per account"
+                          : locked
+                            ? "◌ at token launch"
+                            : on
+                              ? "● selected"
+                              : "○ choose"}
                       </span>
                     </button>
                   );
