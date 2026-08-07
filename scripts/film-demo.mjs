@@ -31,6 +31,23 @@ const sig = bs58.encode(nacl.sign.detached(new TextEncoder().encode(n.message), 
 await api("/api/auth/verify", { wallet, signature: sig });
 console.log("session ready for", wallet.slice(0, 8));
 
+// the token the film buys: mcap ≥ $1M, real 5m action, RISING, and its
+// DexScreener chart verified to exist — never film a rug or a blank panel
+const toks = await api("/api/tokens");
+const candidates = toks.tokens
+  .filter((t) => t.mcapUsd > 1_000_000 && (t.vol5mUsd ?? 0) > 3_000 && t.chg1h > 3)
+  .sort((a, b) => b.chg1h - a.chg1h)
+  .slice(0, 10);
+let star = null;
+for (const t of candidates) {
+  const prof = await fetch(BASE + "/api/token/" + t.mint).then((r) => r.json()).catch(() => null);
+  if (prof?.chartPair) { star = t; break; }
+}
+if (!star) {
+  star = toks.tokens.filter((t) => t.mcapUsd > 1_000_000).sort((a, b) => b.chg1h - a.chg1h)[0] ?? toks.tokens[0];
+}
+console.log("star token:", star.symbol, "· 1h", star.chg1h + "%", "· mc", Math.round(star.mcapUsd / 1000) + "K");
+
 const b = await puppeteer.launch({
   executablePath: CHROME,
   headless: "new",
@@ -148,24 +165,42 @@ await moveTo(rulesBtn.x, rulesBtn.y, 700);
 await click();
 await sleep(1200);
 
-// browse tokens, open one
+// find the star through the search box — deterministic and cinematic
+const search = await page.evaluate(() => {
+  const el = document.querySelector('input[placeholder*="search token"]');
+  const r = el?.getBoundingClientRect();
+  return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+});
+if (search) {
+  await moveTo(search.x, search.y, 700);
+  await click();
+  await page.keyboard.type(star.symbol, { delay: 110 });
+  await sleep(900);
+}
 const row = await page.evaluate(() => {
   const rows = [...document.querySelectorAll(".token-row")];
-  const r = rows[1]?.getBoundingClientRect();
+  const r = rows[0]?.getBoundingClientRect();
   return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
 });
 if (row) {
-  await moveTo(row.x, row.y, 800);
-  await sleep(400);
+  await moveTo(row.x, row.y, 700);
+  await sleep(300);
   await click();
 }
-await sleep(4500); // chart loads with real candles
+await sleep(7500); // the chart draws its candles — give it the screen
+// glide the cursor along the rising chart like a trader reading it
+await moveTo(700, 620, 900);
+await moveTo(1050, 480, 1100);
+await sleep(700);
 
 // buy: 50% then the big green button
 await go("50%", "button", 800);
 await sleep(500);
 await go("buy ", "button", 700);
-await sleep(3000); // fill toast + position row + pnl badge
+await sleep(2000); // fill toast
+// linger: live ticks repaint the candle, the position pnl badge sits in the list
+await moveTo(240, 320, 900);
+await sleep(4200);
 
 // clear the ladder — the script forces the target, the cursor secures it.
 // every phase is a NEW run row, and the HUD gates on that run's trade LIST:
@@ -193,15 +228,30 @@ const force = async (cash) => {
   }
   await sql`UPDATE runs SET cash_sol = ${cash}, trade_count = 12 WHERE id = ${run.id}`;
 };
-for (const [cash, next] of [[16, "start challenge 02"], [22, "start challenge 03"], [31, null]]) {
-  await force(cash);
-  await sleep(6500); // state poll picks it up, secure-pass starts pulsing
-  await go("secure pass", "button", 900);
-  await sleep(2400); // celebration
-  if (next) {
-    await go(next, "button", 700);
-    await sleep(1500);
+try {
+  for (const [cash, next] of [[16, "start challenge 02"], [22, "start challenge 03"], [31, null]]) {
+    await force(cash);
+    await sleep(6500); // state poll picks it up, secure-pass starts pulsing
+    await go("secure pass", "button", 900);
+    await sleep(2400); // celebration
+    if (next) {
+      await go(next, "button", 700);
+      await sleep(1500);
+    }
   }
+} catch (e) {
+  console.error("LADDER FAIL:", e.message);
+  const dump = await page.evaluate(() =>
+    [...document.querySelectorAll("button")]
+      .filter((b) => b.offsetParent !== null)
+      .map((b) => b.textContent.trim().slice(0, 40))
+      .filter(Boolean),
+  );
+  console.error("visible buttons:", JSON.stringify(dump.slice(0, 30)));
+  await page.screenshot({ path: "video/out/demo-fail.png" });
+  await rec.stop();
+  await b.close();
+  process.exit(1);
 }
 await sleep(3800); // YOU WON overlay lingers
 await rec.stop();

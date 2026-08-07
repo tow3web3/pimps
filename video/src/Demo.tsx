@@ -5,7 +5,7 @@ import { AbsoluteFill, OffthreadVideo, Series, staticFile } from "remotion";
 import { Kinetic, Label, Mark, Paper } from "./bits";
 import { Cta } from "./Video";
 
-const VIDEO_FRAMES = 2286; // 76.2s @30fps, measured from demo.webm
+const VIDEO_FRAMES = 2667; // measured from demo.webm
 
 const Hello: React.FC = () => (
   <Paper>
