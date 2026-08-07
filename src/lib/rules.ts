@@ -7,8 +7,8 @@ export const TAGLINE = "trade memecoins. get funded.";
 /** community links — paste the real URLs when live; empty strings keep the
     icons visible but pointing nowhere yet */
 export const SOCIALS = {
-  x: "",
-  telegram: "",
+  x: "https://x.com/getfundeddotfun",
+  telegram: "https://t.me/getfundedfun",
 };
 
 export const RULES = {

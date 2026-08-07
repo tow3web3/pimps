@@ -11,6 +11,7 @@ import TradePanel from "@/components/TradePanel";
 import PositionsPanel from "@/components/PositionsPanel";
 import ChallengeHUD from "@/components/ChallengeHUD";
 import GameOverlays from "@/components/GameOverlays";
+import RulesGate from "@/components/RulesGate";
 import MobileTradeBar from "@/components/MobileTradeBar";
 import MobileChallengeBar from "@/components/MobileChallengeBar";
 import LiveFeed, { FeedToasts } from "@/components/LiveFeed";
@@ -183,6 +184,7 @@ export default function TerminalPage() {
       </nav>
 
       <FeedToasts />
+      <RulesGate />
       <GameOverlays />
     </div>
   );

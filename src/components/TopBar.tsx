@@ -8,6 +8,7 @@ import { useMarket } from "@/lib/market";
 import { fmtSol, fmtUsd } from "@/lib/format";
 import { connectWallet, disconnectWallet, useAuth, useServerSync } from "@/lib/authClient";
 import PrivyConnect, { privyEnabled } from "@/components/PrivyConnect";
+import { useRulesGate } from "@/components/RulesGate";
 
 export default function TopBar() {
   useServerSync();
@@ -51,6 +52,13 @@ export default function TopBar() {
           </span>
           {fmtSol(game.equity, 2)} <span className="text-[var(--ink-3)] text-[10px]">SOL</span>
         </span>
+        <button
+          onClick={() => useRulesGate.getState().setOpen(true)}
+          className="chip shrink-0 hidden sm:block hover:!border-[var(--ink)] transition-colors"
+          title="the five house rules"
+        >
+          rules
+        </button>
         {!wallet && privyEnabled() ? (
           <PrivyConnect
             onDone={() => {}}
