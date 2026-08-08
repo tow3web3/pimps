@@ -114,17 +114,19 @@ export default function TradePanel() {
                 className="field text-lg"
               />
               <div className="flex gap-1.5 mt-2">
+                {/* FLOOR to the cent — toFixed rounds up half the time, which
+                    puts "max" a hair over the cap and greys the buy button */}
                 {[0.25, 0.5, 0.75].map((f) => (
                   <button
                     key={f}
-                    onClick={() => setAmount((maxSol * f).toFixed(2))}
+                    onClick={() => setAmount((Math.floor(maxSol * f * 100) / 100).toFixed(2))}
                     className="chip hover:border-[var(--border-strong)] hover:text-[var(--ink)] transition-colors flex-1"
                   >
                     {f * 100}%
                   </button>
                 ))}
                 <button
-                  onClick={() => setAmount(maxSol.toFixed(2))}
+                  onClick={() => setAmount((Math.floor(maxSol * 100) / 100).toFixed(2))}
                   className="chip hover:border-[rgba(255,90,0,0.5)] hover:text-[var(--cyan)] transition-colors flex-1"
                 >
                   max

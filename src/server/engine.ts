@@ -8,7 +8,7 @@
 
 import { ensureSchema, sql, type Row } from "./sql";
 import { getMarks, type Mark } from "./prices";
-import { eligibleMints } from "./eligibility";
+import { eligibleMints, ensureEligible } from "./eligibility";
 import { CHALLENGE_MS, looksLegitMarket, RULES } from "@/lib/rules";
 
 export interface RunRow {
@@ -163,20 +163,22 @@ export async function createChallengeRun(
   tier: "free" | "paid",
 ): Promise<void> {
   const last = await lastChallenge(wallet);
-
-  const freeUsedRows = (await sql`
-    SELECT COUNT(*)::int AS c FROM runs
-    WHERE wallet = ${wallet} AND tier = 'free' AND kind = 'challenge'
-  `) as Row[];
-  const freeUsed = Number(freeUsedRows[0].c) > 0;
   if (last && last.status === "active") throw new Error("a run is already active");
   const attempt = last ? last.attempt + 1 : 1;
   const now = Date.now();
-  await sql`
-    INSERT INTO runs(wallet, kind, tier, phase, attempt, status, cash_sol, start_sol, started_at, ends_at)
-    VALUES (${wallet}, 'challenge', ${tier}, 0, ${attempt}, 'active',
-            ${RULES.startBalance}, ${RULES.startBalance}, ${now}, ${now + CHALLENGE_MS})
-  `;
+  try {
+    await sql`
+      INSERT INTO runs(wallet, kind, tier, phase, attempt, status, cash_sol, start_sol, started_at, ends_at)
+      VALUES (${wallet}, 'challenge', ${tier}, 0, ${attempt}, 'active',
+              ${RULES.startBalance}, ${RULES.startBalance}, ${now}, ${now + CHALLENGE_MS})
+    `;
+  } catch (e) {
+    // the runs_one_active unique index caught a concurrent double-enter
+    if (e instanceof Error && /runs_one_active|duplicate key/.test(e.message)) {
+      throw new Error("a run is already active");
+    }
+    throw e;
+  }
 }
 
 export async function buy(wallet: string, mint: string, solAmount: number): Promise<void> {
@@ -191,7 +193,9 @@ export async function buy(wallet: string, mint: string, solAmount: number): Prom
   const mark = marks[mint];
   if (!mark) throw new Error("no live market for this token");
   // provenance: either the universe sweep vouches for it (pump.fun's own
-  // listing) or the mint carries the modern vanity suffix
+  // listing) or the mint carries the modern vanity suffix. Hydrate the set
+  // first — on serverless this instance never ran the sweep itself.
+  if (!eligibleMints.has(mint)) await ensureEligible();
   if (!eligibleMints.has(mint) && !mint.toLowerCase().endsWith(RULES.pumpSuffix)) {
     throw new Error("not a pump.fun token");
   }
@@ -288,12 +292,19 @@ export async function securePass(wallet: string): Promise<void> {
   const positions = await positionsOf(run.id);
   // the pass liquidation is a fill too — live marks, no cache
   const { marks, solUsd } = await getMarks(positions.map((p) => p.mint), { fresh: true });
+  // NO fallback pricing here: a position without a live mark (delisted pair,
+  // upstream outage) must not be "liquidated" at its entry price — that would
+  // erase real losses (or confiscate real gains) on the way to a cash prize
+  for (const p of positions) {
+    if (!marks[p.mint]) {
+      throw new Error(`no live market for ${p.symbol} right now — sell it or retry in a moment`);
+    }
+  }
 
   let cash = run.cash_sol;
   for (const p of positions) {
     const mark = marks[p.mint];
-    const px = mark ? mark.priceSol : p.avg_price_sol;
-    const gross = p.qty * px;
+    const gross = p.qty * mark.priceSol;
     const feeSol = gross * RULES.feeRate;
     cash += gross - feeSol;
   }
@@ -309,27 +320,13 @@ export async function securePass(wallet: string): Promise<void> {
   `) as Row[];
   if (closed.length === 0) throw new Error("run already settled");
 
-  for (const p of positions) {
-    const mark = marks[p.mint];
-    if (mark) {
-      const gross = p.qty * mark.priceSol;
-      const feeSol = gross * RULES.feeRate;
-      await recordTrade(run, "sell", mark, p.qty, gross - feeSol, feeSol, gross - feeSol - p.invested_sol);
-    }
-  }
-  await sql`DELETE FROM positions WHERE run_id = ${run.id}`;
-
   const now = Date.now();
-  if (!cleared) {
-    await sql`
-      INSERT INTO runs(wallet, kind, tier, phase, attempt, status, cash_sol, start_sol, started_at, ends_at)
-      VALUES (${wallet}, 'challenge', ${run.tier}, ${run.phase + 1}, ${run.attempt}, 'active',
-              ${RULES.startBalance}, ${RULES.startBalance}, ${now}, ${now + CHALLENGE_MS})
-    `;
-  } else {
+  if (cleared) {
     // cleared all three → a fixed cash PRIZE sent straight to the wallet.
-    // No funded account, no profit split: the firm just pays the reward. One
-    // prize per winning run, guarded by the run id so a replay can't double-pay.
+    // The prize row is the VERY NEXT statement after the claim: any crash in
+    // the cosmetic work below can no longer void a winner's money — and the
+    // payout cron backfills this row from the funded run if even this window
+    // is hit. One prize per winning run, guarded by the run id.
     const prizeUsd =
       run.tier === "free" ? RULES.freeRewardUsd : RULES.entryFeeUsd * RULES.fundedMultiple;
     void solUsd;
@@ -345,6 +342,24 @@ export async function securePass(wallet: string): Promise<void> {
     // user's response hostage. The cron route owns claiming, caps and
     // idempotency, so this trigger is always safe to fire.
     triggerPayoutsSoon();
+  }
+
+  for (const p of positions) {
+    const mark = marks[p.mint];
+    if (mark) {
+      const gross = p.qty * mark.priceSol;
+      const feeSol = gross * RULES.feeRate;
+      await recordTrade(run, "sell", mark, p.qty, gross - feeSol, feeSol, gross - feeSol - p.invested_sol);
+    }
+  }
+  await sql`DELETE FROM positions WHERE run_id = ${run.id}`;
+
+  if (!cleared) {
+    await sql`
+      INSERT INTO runs(wallet, kind, tier, phase, attempt, status, cash_sol, start_sol, started_at, ends_at)
+      VALUES (${wallet}, 'challenge', ${run.tier}, ${run.phase + 1}, ${run.attempt}, 'active',
+              ${RULES.startBalance}, ${RULES.startBalance}, ${now}, ${now + CHALLENGE_MS})
+    `;
   }
 }
 
@@ -416,6 +431,21 @@ async function _legacyRequestWithdrawal(wallet: string) {
 export async function clientState(wallet: string) {
   await ensureSchema();
   let challenge = await activeChallenge(wallet);
+  // self-heal: a crash between closing a passed phase and opening the next
+  // one would otherwise strand the player mid-ladder with no run and no way
+  // to re-enter. The unique active-run index makes this race-safe.
+  if (!challenge) {
+    const last = await lastChallenge(wallet);
+    if (last && last.status === "passed" && last.phase < RULES.phases.length - 1) {
+      const now = Date.now();
+      await sql`
+        INSERT INTO runs(wallet, kind, tier, phase, attempt, status, cash_sol, start_sol, started_at, ends_at)
+        VALUES (${wallet}, 'challenge', ${last.tier}, ${last.phase + 1}, ${last.attempt}, 'active',
+                ${RULES.startBalance}, ${RULES.startBalance}, ${now}, ${now + CHALLENGE_MS})
+      `.catch(() => {});
+      challenge = await activeChallenge(wallet);
+    }
+  }
   if (challenge) challenge = await settle(challenge);
   let funded = await activeFunded(wallet);
   if (funded) funded = await settle(funded);

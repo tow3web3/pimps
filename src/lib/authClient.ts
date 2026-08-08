@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 import { create } from "zustand";
 import bs58 from "bs58";
 import { connectAndGetKey, getProvider, setPreferredWallet, withWalletTimeout } from "./payments";
-import { useGame } from "./store";
+import { serverSync, useGame } from "./store";
 import { useMarket } from "./market";
 
 interface AuthState {
@@ -21,9 +21,15 @@ interface AuthState {
 export const useAuth = create<AuthState>(() => ({ wallet: null, label: null, connecting: false }));
 
 export async function refreshServerState(): Promise<boolean> {
+  const startedAt = Date.now();
   const res = await fetch("/api/game/state");
   if (!res.ok) return false;
-  useGame.getState().hydrateServer(await res.json());
+  const payload = await res.json();
+  // a fill completed while this GET was in flight: its answer predates the
+  // fill and would make the position visibly "un-happen" until the next poll.
+  // Drop it — the fill's own hydrate is fresher, and the next poll catches up.
+  if (serverSync.lastMutationAt > startedAt) return true;
+  useGame.getState().hydrateServer(payload);
   // the server's equity snapshot is already seconds old — immediately re-mark
   // against the live 1s prices so the HUD never steps backwards
   const { tokens } = useMarket.getState();

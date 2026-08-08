@@ -143,6 +143,25 @@ export default function EnterPage() {
           return;
         }
       }
+      // money must never move for a seat that already exists. The guard in
+      // pay() sees a PRE-connect mirror — a returning user in a fresh browser
+      // is only known to be seated NOW, after authentication. Ask the server.
+      if (method !== "free") {
+        try {
+          const st = await fetch("/api/game/state").then((r) => (r.ok ? r.json() : null));
+          if (st?.run?.status === "active") {
+            useGame.getState().hydrateServer(st);
+            setLines((l) => [
+              ...l,
+              "✓ you already have an active run — no payment needed, opening it",
+            ]);
+            timers.current.push(setTimeout(() => router.push("/terminal"), 700));
+            return;
+          }
+        } catch {
+          /* server unreachable — the enter call below is the authority */
+        }
+      }
       let txSig: string | undefined;
       const step = (line: string) => setLines((l) => [...l, line]);
       if (method === "gf" && live) {

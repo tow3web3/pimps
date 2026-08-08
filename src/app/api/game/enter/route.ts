@@ -45,7 +45,19 @@ export async function POST(req: NextRequest) {
 
   try {
     const outcome = await verifyEntryPayment(wallet, method, txSig);
-    await createChallengeRun(wallet, method === "free" ? "free" : "paid");
+    try {
+      await createChallengeRun(wallet, method === "free" ? "free" : "paid");
+    } catch (e) {
+      // the payment verified but no seat was created (e.g. a concurrent enter
+      // won the race) — release the signature so the SAME payment can seat
+      // them on retry instead of being burned
+      if (txSig) {
+        await sql`DELETE FROM payments WHERE tx_sig = ${txSig} AND wallet = ${wallet}`.catch(
+          () => {},
+        );
+      }
+      throw e;
+    }
     return NextResponse.json({ payment: outcome, state: await clientState(wallet) });
   } catch (e) {
     return NextResponse.json(

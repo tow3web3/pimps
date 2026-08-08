@@ -69,6 +69,29 @@ export async function verifyEntryPayment(
   `) as Array<Record<string, unknown>>;
   if (claimed.length === 0) throw new Error("this transaction was already used for a seat");
 
+  try {
+    await verifyOnChain(wallet, method, txSig, treasury, cfg.gfMint, amountUsd);
+  } catch (e) {
+    // release the claim: "not found yet" happens on the NORMAL happy path
+    // (RPC lag right after paying) and the user must be able to retry the
+    // same signature — a burned claim would burn their real money. Replay
+    // stays impossible: a claim only survives once verification PASSES.
+    await sql`DELETE FROM payments WHERE tx_sig = ${txSig} AND verified = 0`.catch(() => {});
+    throw e;
+  }
+
+  await sql`UPDATE payments SET verified = 1 WHERE tx_sig = ${txSig}`;
+  return "verified";
+}
+
+async function verifyOnChain(
+  wallet: string,
+  method: "usdc" | "gf",
+  txSig: string,
+  treasury: string,
+  gfMint: string,
+  amountUsd: number,
+): Promise<void> {
   const res = await fetch(rpcUrl(), {
     method: "POST",
     cache: "no-store",
@@ -100,7 +123,7 @@ export async function verifyEntryPayment(
     throw new Error("transaction was not signed by your wallet");
   }
 
-  const mint = method === "gf" ? cfg.gfMint : USDC;
+  const mint = method === "gf" ? gfMint : USDC;
   const balanceOf = (list: TokenBalance[] | undefined) =>
     (list ?? [])
       .filter((b) => b.mint === mint && b.owner === treasury)
@@ -124,7 +147,4 @@ export async function verifyEntryPayment(
       );
     }
   }
-
-  await sql`UPDATE payments SET verified = 1 WHERE tx_sig = ${txSig}`;
-  return "verified";
 }

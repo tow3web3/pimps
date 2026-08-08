@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { CHALLENGE_MS, RULES } from "./rules";
 import type {
   EquityPoint,
@@ -74,6 +74,12 @@ export interface PrizeInfo {
   tier: string;
 }
 
+/** monotonic marker of the last server MUTATION this client performed — the
+ *  5s state poll compares against it so a response that left the server
+ *  BEFORE our fill can never overwrite the fill's result (a position would
+ *  visibly "un-happen" for up to 5 seconds) */
+export const serverSync = { lastMutationAt: 0 };
+
 async function serverCall(path: string, body?: unknown): Promise<TradeResult> {
   try {
     const res = await fetch(path, {
@@ -83,7 +89,15 @@ async function serverCall(path: string, body?: unknown): Promise<TradeResult> {
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: j.error ?? "rejected by server" };
-    if (j.state) useGame.getState().hydrateServer(j.state);
+    serverSync.lastMutationAt = Date.now();
+    if (j.state) {
+      useGame.getState().hydrateServer(j.state);
+      // re-mark against the live 1s prices immediately, same as the poll
+      // path — otherwise equity steps back for up to a second after a fill
+      import("./market")
+        .then((m) => useGame.getState().markToMarket(m.useMarket.getState().tokens))
+        .catch(() => {});
+    }
     return { ok: true };
   } catch {
     return { ok: false, error: "network error" };
@@ -209,7 +223,7 @@ export const useGame = create<GameState>()(
         if (posValue + solAmount > capSol + 1e-9)
           return {
             ok: false,
-            error: `35% cap: max ${Math.max(0, capSol - posValue).toFixed(2)} SOL more on this token`,
+            error: `${Math.round(RULES.maxExposure * 100)}% cap: max ${Math.max(0, capSol - posValue).toFixed(2)} SOL more on this token`,
           };
 
         const feeSol = solAmount * RULES.feeRate;
@@ -476,6 +490,11 @@ export const useGame = create<GameState>()(
             s.serverMode && s.status === "active" && p.run.phase > s.phase
               ? p.run.phase // 1-based: phase index 1 = challenge 01 cleared
               : s.justCleared;
+          // a NEW run (phase jump, re-entry, first hydrate) starts its own
+          // equity curve — the previous phase's 15-20 SOL tail must not bleed
+          // into the fresh 10 SOL stack
+          const newRun =
+            !s.serverMode || p.run.phase !== s.phase || p.run.attempt !== s.attempt;
           // only active challenge runs exist now — there is no funded account
           set({
             justCleared: cleared,
@@ -493,7 +512,9 @@ export const useGame = create<GameState>()(
             startedAt: p.run.startedAt,
             endsAt: p.run.endsAt ?? now + CHALLENGE_MS,
             failReason: null,
-            equitySeries: pushSeries(p.run.equitySol),
+            equitySeries: newRun
+              ? [{ t: now, v: p.run.equitySol }]
+              : pushSeries(p.run.equitySol),
             funded: null,
             prize: null,
             serverWithdrawals: p.withdrawals ?? [],
@@ -593,7 +614,26 @@ export const useGame = create<GameState>()(
     }),
     {
       name: "getfunded-game-v1",
-      // never persist the server mirror — guests keep their local game only
+      // never persist the server mirror — guests keep their local game only.
+      // The storage wrapper DROPS writes while a server session is mirrored:
+      // partialize alone still wrote server positions/cash into the guest
+      // slot, so a reload before session-restore replayed someone's real run
+      // as a local demo (and could flash a false CHALLENGE FAILED).
+      storage: createJSONStorage(() => ({
+        getItem: (n: string) => localStorage.getItem(n),
+        setItem: (n: string, v: string) => {
+          if (!useGame.getState().serverMode) localStorage.setItem(n, v);
+        },
+        removeItem: (n: string) => localStorage.removeItem(n),
+      })),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<GameState> | undefined;
+        // legacy slots polluted by an old server session: "unseated" only
+        // exists server-side — restoring it would block the terminal with a
+        // wrong full-screen overlay. Start that guest fresh instead.
+        if (!p || p.status === "unseated") return current;
+        return { ...current, ...p };
+      },
       partialize: (s) =>
         Object.fromEntries(
           Object.entries(s).filter(

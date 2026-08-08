@@ -111,6 +111,16 @@ export function ensureSchema(): Promise<void> {
       tx_sig TEXT
     )`;
     await sql`CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status, payable_at)`;
+    // when the payer claimed the row — lets the reaper spot dead instances
+    await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS paying_at BIGINT`;
+    // one active run per wallet+kind, enforced by the DATABASE: two concurrent
+    // enter clicks on different instances both pass the read check, but only
+    // one insert can win. Wrapped: pre-existing duplicate rows must not brick
+    // the boot — the guard simply stays off until the data is clean.
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS runs_one_active
+      ON runs(wallet, kind) WHERE status = 'active'`.catch(() =>
+      console.warn("[sql] runs_one_active index not created — duplicate active runs exist"),
+    );
     await sql`CREATE TABLE IF NOT EXISTS candles (
       pool TEXT NOT NULL,
       tf_key TEXT NOT NULL,

@@ -76,7 +76,10 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
     // long-standing large caps never show here. lastTick is the 1s market
     // clock, a pure stand-in for "now".
     if (sort === "crossed") {
-      const cutoff = lastTick - 24 * 3600_000;
+      // lastTick is the 1s market clock — a pure stand-in for "now". Before
+      // the first tick it is 0, so the window collapses to "has a stamp at
+      // all" instead of inverting into "show everything".
+      const cutoff = lastTick > 0 ? lastTick - 24 * 3600_000 : 0;
       list = list.filter((t) => (t.crossedAt ?? 0) > cutoff);
     }
     if (q.trim()) {
@@ -171,9 +174,11 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
         {(() => {
           const renderRow = (t: import("@/lib/types").TokenInfo) => {
             const pos = positions.find((p) => p.mint === t.mint);
+            // NET of the exit fee, so this badge agrees with the positions
+            // panel — a flat price must not read green here and red there
             const pnlPct =
               pos && pos.avgPriceSol > 0
-                ? ((t.priceSol - pos.avgPriceSol) / pos.avgPriceSol) * 100
+                ? ((t.priceSol * (1 - RULES.feeRate) - pos.avgPriceSol) / pos.avgPriceSol) * 100
                 : null;
             const up = t.chg24h >= 0;
             return (

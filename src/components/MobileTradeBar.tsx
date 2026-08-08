@@ -211,7 +211,7 @@ export default function MobileTradeBar() {
                   {[0.25, 0.5, 0.75, 1].map((f) => (
                     <button
                       key={f}
-                      onClick={() => setAmount((maxSol * f).toFixed(2))}
+                      onClick={() => setAmount((Math.floor(maxSol * f * 100) / 100).toFixed(2))}
                       className="chip flex-1 !py-1 !text-[10px]"
                     >
                       {f === 1 ? "max" : `${f * 100}%`}

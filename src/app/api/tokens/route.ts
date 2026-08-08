@@ -27,7 +27,10 @@ const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 // Results merge into a ROLLING UNION: partial sweeps grow the universe, and a
 // token only leaves after 30min unseen. Rate limits degrade freshness, never
 // the terminal.
-const UNSEEN_EXPIRY = 30 * 60_000;
+// must comfortably exceed the FULL chunk-rotation period (~2h for ~35 chunks
+// at one shift per 5min): evicting faster than the rotation revisits would
+// permanently churn two-thirds of the universe in and out
+const UNSEEN_EXPIRY = 4 * 3600_000;
 // measured 2026-08-05: ~1050 pump.fun mints sit above the $100K floor —
 // the cap must stay comfortably above the real population
 const MAX_TOKENS = 1200;
@@ -443,6 +446,27 @@ export async function runUniverseSweep(full: boolean): Promise<number> {
 export async function GET() {
   await ensureSchema();
   await restoreSnapshot();
+  if (cache && Date.now() - cache.at < 60_000) return NextResponse.json(cache.body);
+
+  // the cron publishes fresh snapshots from ANOTHER process — a long-lived
+  // instance must re-read them or it serves its boot-time universe forever
+  try {
+    const raw = await kvGet("universe");
+    if (raw) {
+      const snap = JSON.parse(raw) as { tokens?: TokenInfo[]; solUsd?: number };
+      const tokens = (snap.tokens ?? []).filter(
+        (t) =>
+          t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd && looksLegitMarket(t),
+      );
+      if (tokens.length > 0) {
+        replaceEligible(tokens.map((t) => t.mint));
+        cache = { at: Date.now(), body: { tokens, solUsd: snap.solUsd ?? lastSolUsd } };
+        return NextResponse.json(cache.body);
+      }
+    }
+  } catch {
+    /* fall through to whatever we have */
+  }
   if (cache) return NextResponse.json(cache.body);
 
   // nothing published yet (very first boot): one cheap probe so the terminal

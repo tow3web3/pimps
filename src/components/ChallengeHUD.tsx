@@ -10,6 +10,7 @@ export default function ChallengeHUD() {
   const game = useGame();
   const { solUsd, tokens } = useMarket();
   const [now, setNow] = useState(() => Date.now());
+  const [passErr, setPassErr] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -164,11 +165,24 @@ export default function ChallengeHUD() {
         {/* secure pass */}
         {canPass && (
           <button
-            onClick={() => void Promise.resolve(useGame.getState().securePass(tokens))}
+            onClick={() => {
+              setPassErr(null);
+              // the server re-prices with live marks — a rejection (price
+              // dipped a tick, one pair momentarily unquoted) must be SHOWN,
+              // not swallowed: this is the most important button in the game
+              void Promise.resolve(useGame.getState().securePass(tokens)).then((r) => {
+                if (r && !r.ok) setPassErr(r.error ?? "pass rejected — retry in a moment");
+              });
+            }}
             className="btn btn-buy secure-pass w-full py-3.5 !text-[13px]"
           >
             ◆ secure pass — clear challenge 0{phase.num}
           </button>
+        )}
+        {passErr && (
+          <p className="mono text-[10px] text-amber-300/90 border border-amber-300/25 rounded-lg px-2.5 py-1.5">
+            ✕ {passErr}
+          </p>
         )}
         {game.status === "active" && targetHit && !tradesOk && (
           <p className="mono text-[10px] text-amber-300/90 border border-amber-300/25 rounded-lg px-2.5 py-1.5">
