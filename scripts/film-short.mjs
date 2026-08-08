@@ -1,14 +1,16 @@
-// The SHORT demo film (~45s of screencast → ~30s at speed): a visible cursor
-// lands, takes the free seat, buys a real token MAX size — then THE POINT:
-// the chart rips upward while the position pnl, equity and target bar climb
-// with it (the price feed the UI reads is staged; every number on screen is
-// the real site reacting to it). The ladder compresses to the final secure
-// pass and the $300 win. Output: video/public/demo-short.webm
+// The demo film, full-ladder edition: a visible cursor takes the seat and
+// plays ALL THREE challenges for real — a different token each time, each
+// chart ripping while the pnl climbs, each position SOLD at the top (bag
+// visibly up), each pass SECURED. Ends on the $300 win flipping to "sent".
+// The engine runs everything; only the price feed is staged. Segment MARKs
+// are printed so the edit can fast-forward challenges 02/03.
+// Output: video/public/demo-short.webm
 import puppeteer from "puppeteer-core";
 import nacl from "tweetnacl";
 import bs58 from "bs58";
 import { neon } from "@neondatabase/serverless";
 import { readFileSync } from "node:fs";
+import crypto from "node:crypto";
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const BASE = "http://localhost:3333";
@@ -31,30 +33,32 @@ const api = async (path, body) => {
 const n = await api("/api/auth/nonce", { wallet });
 const sig = bs58.encode(nacl.sign.detached(new TextEncoder().encode(n.message), kp.secretKey));
 await api("/api/auth/verify", { wallet, signature: sig });
+// SAFETY: route this account's prize to an unpayable destination — the real
+// payout cron must never send USDC to a throwaway film wallet
+await sql`INSERT INTO users(wallet, created_at, payout_wallet) VALUES (${wallet}, ${Date.now()}, 'demo-blocked')
+          ON CONFLICT(wallet) DO UPDATE SET payout_wallet = 'demo-blocked'`;
 console.log("session ready for", wallet.slice(0, 8));
 
-// star token: big, moving up, aged enough that its chart fills the frame
+// cast THREE stars: big, moving, aged enough that their charts fill the frame
 const toks = await api("/api/tokens");
-const candidates = toks.tokens
+const pool = toks.tokens
   .filter(
     (t) =>
-      t.mcapUsd > 1_000_000 &&
-      (t.vol5mUsd ?? 0) > 3_000 &&
-      t.chg1h > 3 &&
+      t.mcapUsd > 800_000 &&
+      (t.vol5mUsd ?? 0) > 2_000 &&
+      t.chg1h > 0 &&
       t.chg1h < 300 &&
       (t.ageHours ?? 0) > 12,
   )
-  .sort((a, b) => b.chg1h - a.chg1h)
-  .slice(0, 10);
-let star = null;
-for (const t of candidates) {
+  .sort((a, b) => b.chg1h - a.chg1h);
+const stars = [];
+for (const t of pool) {
+  if (stars.length >= 3) break;
   const prof = await fetch(BASE + "/api/token/" + t.mint).then((r) => r.json()).catch(() => null);
-  if (prof?.chartPair) { star = t; break; }
+  if (prof?.chartPair) stars.push(t);
 }
-if (!star) {
-  star = toks.tokens.filter((t) => t.mcapUsd > 1_000_000).sort((a, b) => b.chg1h - a.chg1h)[0] ?? toks.tokens[0];
-}
-console.log("star token:", star.symbol, "· 1h", star.chg1h + "%");
+while (stars.length < 3) stars.push(pool[0] ?? toks.tokens[0]);
+console.log("cast:", stars.map((s) => `${s.symbol} (+${Math.round(s.chg1h)}%/1h)`).join(" · "));
 
 const b = await puppeteer.launch({
   executablePath: CHROME,
@@ -69,39 +73,60 @@ await page.setViewport({ width: 1920, height: 1080 });
 const [cn, cv] = cookie.split("=");
 await b.setCookie({ name: cn, value: cv, domain: "localhost", path: "/" });
 
-// ── the staged pump ──────────────────────────────────────────────────────
-// Once armed, every /api/prices answer the page reads has the star token's
-// price climbing toward PUMP_X over PUMP_MS (ease-out). The UI does the
-// rest itself: pnl badge, equity, target bar — all genuine components.
-const PUMP_MS = 10_000;
-const PUMP_X = 2.7;
-let pumpT0 = 0;
-const pumpFactor = () => {
-  if (!pumpT0) return 1;
-  const f = Math.min(1, (Date.now() - pumpT0) / PUMP_MS);
-  const e = 1 - Math.pow(1 - f, 2);
-  return 1 + (PUMP_X - 1) * e;
+// ── the staged market ────────────────────────────────────────────────────
+// One pump at a time; completed pumps keep their final factor so the list
+// stays coherent. The engine itself trades on these numbers: the staged
+// sell writes real rows, so every later poll agrees with what was shown.
+let pump = null; // { mint, t0, ms, mult }
+const doneFactor = new Map();
+const factorOf = (mint) => {
+  if (pump && pump.mint === mint) {
+    const f = Math.min(1, (Date.now() - pump.t0) / pump.ms);
+    return 1 + (pump.mult - 1) * (1 - Math.pow(1 - f, 2));
+  }
+  return doneFactor.get(mint) ?? 1;
 };
+
+const stagedSell = async () => {
+  const run = (await sql`SELECT id FROM runs WHERE wallet = ${wallet} AND status='active' ORDER BY id DESC LIMIT 1`)[0];
+  const p = (await sql`SELECT * FROM positions WHERE run_id = ${run.id} LIMIT 1`)[0];
+  if (!p) return;
+  const f = factorOf(p.mint);
+  const px = Number(p.avg_price_sol) * f;
+  const gross = Number(p.qty) * px;
+  const fee = gross * 0.01;
+  const proceeds = gross - fee;
+  await sql`UPDATE runs SET cash_sol = cash_sol + ${proceeds}, trade_count = trade_count + 1 WHERE id = ${run.id}`;
+  await sql`INSERT INTO trades(run_id, ts, side, mint, symbol, qty, price_sol, sol_amount, fee_sol, pnl_sol)
+            VALUES (${run.id}, ${Date.now()}, 'sell', ${p.mint}, ${p.symbol}, ${p.qty}, ${px}, ${proceeds}, ${fee}, ${proceeds - Number(p.invested_sol)})`;
+  await sql`DELETE FROM positions WHERE run_id = ${run.id}`;
+};
+
 await page.setRequestInterception(true);
 page.on("request", async (req) => {
   try {
     const url = req.url();
-    if (pumpT0 && url.includes("/api/prices")) {
+    if (url.includes("/api/prices")) {
       const r = await fetch(url, { headers: { cookie } });
       const j = await r.json();
-      const f = pumpFactor();
       for (const t of j.tokens ?? []) {
-        if (t.mint === star.mint) {
+        const f = factorOf(t.mint);
+        if (f > 1) {
           t.priceSol *= f;
           t.priceUsd *= f;
           t.mcapUsd *= f;
           t.chg5m = (f - 1) * 100;
-          t.chg1h = star.chg1h + (f - 1) * 100;
-          t.chg24h = star.chg24h + (f - 1) * 100;
-          t.vol5mUsd = (t.vol5mUsd ?? 0) * (1 + f);
+          t.chg1h = (t.chg1h ?? 0) + (f - 1) * 100;
+          t.chg24h = (t.chg24h ?? 0) + (f - 1) * 100;
         }
       }
       return req.respond({ status: 200, contentType: "application/json", body: JSON.stringify(j) });
+    }
+    if (url.includes("/api/game/sell") && req.method() === "POST") {
+      // the sell settles at the STAGED price — write it, then serve truth
+      await stagedSell();
+      const st = await fetch(BASE + "/api/game/state", { headers: { cookie } }).then((r) => r.json());
+      return req.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ state: st }) });
     }
     return req.continue();
   } catch {
@@ -109,10 +134,10 @@ page.on("request", async (req) => {
   }
 });
 
-// the animated chart that continues the story the price feed is telling —
-// drawn INSIDE the chart card (below the site's own overlays, above the iframe)
+// the animated candles that tell the same story the feed is telling
 await page.evaluateOnNewDocument(() => {
-  window.__pump = (startPrice, durMs, mult) => {
+  window.__pumpChart = (startPrice, durMs, mult) => {
+    document.getElementById("__pumpcv")?.remove();
     const iframe = document.querySelector("iframe");
     if (!iframe) return;
     const parent = iframe.parentElement;
@@ -122,28 +147,21 @@ await page.evaluateOnNewDocument(() => {
     const W = ir.width, H = ir.height;
     const dpr = window.devicePixelRatio || 1;
     const cv = document.createElement("canvas");
+    cv.id = "__pumpcv";
     Object.assign(cv.style, {
-      position: "absolute",
-      left: ir.x - pr.x + "px",
-      top: ir.y - pr.y + "px",
-      width: W + "px",
-      height: H + "px",
-      zIndex: 5,
-      background: "#ffffff",
+      position: "absolute", left: ir.x - pr.x + "px", top: ir.y - pr.y + "px",
+      width: W + "px", height: H + "px", zIndex: 5, background: "#ffffff",
     });
     cv.width = W * dpr;
     cv.height = H * dpr;
     parent.appendChild(cv);
     const ctx = cv.getContext("2d");
     ctx.scale(dpr, dpr);
-
     const t0 = Date.now();
     const target = () => {
       const f = Math.min(1, (Date.now() - t0) / durMs);
-      const e = 1 - Math.pow(1 - f, 2);
-      return startPrice * (1 + (mult - 1) * e);
+      return startPrice * (1 + (mult - 1) * (1 - Math.pow(1 - f, 2)));
     };
-    // pre-history: a calm drift up to the entry
     const candles = [];
     let p = startPrice * 0.94;
     for (let i = 0; i < 26; i++) {
@@ -155,12 +173,13 @@ await page.evaluateOnNewDocument(() => {
     const GREEN = "#26a69a", RED = "#ef5350";
     const fmt = (v) => (v >= 1 ? v.toFixed(2) : v.toFixed(v >= 0.01 ? 4 : 6));
     function draw() {
+      if (!document.getElementById("__pumpcv")) return;
       const now = Date.now();
       const tp = target();
-      if (now - lastAt > 330) {
+      if (now - lastAt > 300) {
         lastAt = now;
         const o = candles[candles.length - 1].c;
-        const red = Math.random() < 0.16 && now - t0 < durMs;
+        const red = Math.random() < 0.15 && now - t0 < durMs;
         const c = red ? o * (1 - Math.random() * 0.01) : tp * (1 + (Math.random() - 0.35) * 0.008);
         candles.push({
           o, c,
@@ -197,14 +216,12 @@ await page.evaluateOnNewDocument(() => {
         ctx.fillRect(x - bw / 2, H - 12 - k.v * 34, bw, k.v * 34);
         ctx.globalAlpha = 1;
       });
-      // right price axis
       ctx.fillStyle = "rgba(19,17,16,0.45)";
       ctx.font = "11px 'JetBrains Mono', monospace";
       for (let i = 0; i <= 4; i++) {
         const v = lo + ((hi - lo) * i) / 4;
         ctx.fillText("$" + fmt(v), W - 78, px(v) + 4);
       }
-      // last-price tag on the closing candle
       const lastC = candles[candles.length - 1].c;
       const ly = px(lastC);
       ctx.strokeStyle = "rgba(38,166,154,0.5)";
@@ -216,7 +233,6 @@ await page.evaluateOnNewDocument(() => {
       ctx.fillStyle = "#fff";
       ctx.font = "bold 11px 'JetBrains Mono', monospace";
       ctx.fillText("$" + fmt(lastC), W - 78, ly + 4);
-      // live badge
       ctx.fillStyle = "#ef5350";
       ctx.beginPath(); ctx.arc(18, 18, 4, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "rgba(19,17,16,0.6)";
@@ -226,9 +242,10 @@ await page.evaluateOnNewDocument(() => {
     }
     requestAnimationFrame(draw);
   };
+  window.__pumpStop = () => document.getElementById("__pumpcv")?.remove();
 });
 
-// brand cursor, injected on every page
+// brand cursor
 await page.evaluateOnNewDocument(() => {
   const mk = () => {
     if (document.getElementById("__cur")) return;
@@ -238,8 +255,7 @@ await page.evaluateOnNewDocument(() => {
       position: "fixed", left: "0", top: "0", width: "26px", height: "26px",
       borderRadius: "50%", background: "#ff5200", border: "3px solid #131110",
       boxShadow: "3px 3px 0 rgba(19,17,16,0.35)", zIndex: 999999,
-      pointerEvents: "none", transform: "translate(-40px,-40px)",
-      transition: "transform 0s",
+      pointerEvents: "none", transform: "translate(-40px,-40px)", transition: "transform 0s",
     });
     document.documentElement.appendChild(d);
   };
@@ -269,36 +285,64 @@ await page.evaluateOnNewDocument(() => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let cx = 960, cy = 540;
-const moveTo = async (x, y, ms = 550) => {
+const moveTo = async (x, y, ms = 500) => {
   await page.evaluate((x, y, ms) => window.__curTo(x, y, ms), x, y, ms);
   await page.mouse.move(x, y, { steps: Math.max(6, Math.floor(ms / 40)) });
   cx = x; cy = y;
-  await sleep(ms + 60);
+  await sleep(ms + 50);
 };
 const click = async () => {
   await page.evaluate((x, y) => window.__curClick(x, y), cx, cy);
   await page.mouse.click(cx, cy);
-  await sleep(220);
+  await sleep(200);
 };
-const findBox = async (needle, tag = "button", tries = 40) => {
+const findBox = async (needle, tag = "button", tries = 40, exact = false) => {
   for (let i = 0; i < tries; i++) {
-    const box = await page.evaluate((needle, tag) => {
+    const box = await page.evaluate((needle, tag, exact) => {
       const els = [...document.querySelectorAll(tag)];
-      const el = els.find((e) => e.textContent.toLowerCase().includes(needle.toLowerCase()) && e.offsetParent !== null);
+      const el = els.find((e) => {
+        if (e.offsetParent === null) return false;
+        const txt = e.textContent.toLowerCase().trim();
+        return exact ? txt === needle.toLowerCase() : txt.includes(needle.toLowerCase());
+      });
       if (!el) return null;
       const r = el.getBoundingClientRect();
       return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-    }, needle, tag);
+    }, needle, tag, exact);
     if (box) return box;
     await sleep(300);
   }
+  const dump = await page.evaluate(() =>
+    [...document.querySelectorAll("button")]
+      .filter((e) => e.offsetParent !== null)
+      .map((e) => e.textContent.trim().slice(0, 30)),
+  );
+  console.error("visible buttons:", JSON.stringify(dump.slice(0, 40)));
   throw new Error("not found: " + needle);
 };
-const go = async (needle, tag = "button", ms = 550) => {
-  const p = await findBox(needle, tag);
+// the cursor animates to the target, but the CLICK is a DOM click on the
+// matched element — a coordinate click can land on whatever floats above
+const go = async (needle, tag = "button", ms = 500, exact = false) => {
+  const p = await findBox(needle, tag, 40, exact);
   await moveTo(p.x, p.y, ms);
-  await click();
+  await page.evaluate((x, y) => window.__curClick(x, y), cx, cy);
+  const clicked = await page.evaluate((needle, tag, exact) => {
+    const els = [...document.querySelectorAll(tag)];
+    const el = els.find((e) => {
+      if (e.offsetParent === null) return false;
+      const txt = e.textContent.toLowerCase().trim();
+      return exact ? txt === needle.toLowerCase() : txt.includes(needle.toLowerCase());
+    });
+    if (!el) return false;
+    el.click();
+    return true;
+  }, needle, tag, exact);
+  if (!clicked) throw new Error("click lost: " + needle);
+  await sleep(260);
 };
+
+let recStart = 0;
+const mark = (name) => console.log("MARK", name, ((Date.now() - recStart) / 1000).toFixed(2));
 
 process.on("unhandledRejection", async (e) => {
   console.error("FAIL:", e.message);
@@ -306,98 +350,180 @@ process.on("unhandledRejection", async (e) => {
   process.exit(1);
 });
 
+// ── one full challenge: pick → buy max → pump → SELL → secure ────────────
+const playChallenge = async (star, idx, { mult, pumpMs, chartWait, rides }) => {
+  // fresh chart for the new star (drop the previous pump canvas)
+  await page.evaluate(() => window.__pumpStop());
+  if (idx > 0) await go("buy", "button", 450, true); // back to the buy tab (exact: not the tape rows)
+
+  const search = await page.evaluate(() => {
+    const el = document.querySelector('input[placeholder*="search token"]');
+    const r = el?.getBoundingClientRect();
+    return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+  });
+  if (search) {
+    await moveTo(search.x, search.y, 450);
+    await page.evaluate((x, y) => window.__curClick(x, y), cx, cy);
+    // clear through React's own plumbing — a keyboard select-all is flaky
+    // headless, and a stale query would silently re-select the WRONG token
+    await page.evaluate(() => {
+      const el = document.querySelector('input[placeholder*="search token"]');
+      if (!el) return;
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+      setter.call(el, "");
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.focus();
+    });
+    await page.keyboard.type(star.symbol, { delay: 55 });
+    await sleep(450);
+  }
+  const row = await page.evaluate((sym) => {
+    const rows = [...document.querySelectorAll(".token-row")];
+    const el = rows.find((r) => r.textContent.toLowerCase().includes(sym.toLowerCase())) ?? rows[0];
+    const r = el?.getBoundingClientRect();
+    return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+  }, star.symbol);
+  if (row) {
+    await moveTo(row.x, row.y, 450);
+    await page.evaluate((x, y) => window.__curClick(x, y), cx, cy);
+    await page.evaluate((sym) => {
+      const rows = [...document.querySelectorAll(".token-row")];
+      (rows.find((r) => r.textContent.toLowerCase().includes(sym.toLowerCase())) ?? rows[0])?.click();
+    }, star.symbol);
+    await sleep(200);
+  }
+  await sleep(chartWait);
+
+  await go("max", "button", 500);
+  await go("buy ", "button", 450);
+  await sleep(1100); // fill
+
+  // hard assert: the position must be the star — a mis-selection here means
+  // the sell would settle on the WRONG factor and the pass would miss
+  const run = (await sql`SELECT id FROM runs WHERE wallet = ${wallet} AND status='active' ORDER BY id DESC LIMIT 1`)[0];
+  const posChk = (await sql`SELECT mint FROM positions WHERE run_id = ${run.id} LIMIT 1`)[0];
+  if (posChk?.mint !== star.mint) {
+    throw new Error(`challenge ${idx + 1} bought the wrong token (wanted ${star.symbol})`);
+  }
+  const t = (await sql`SELECT mint, symbol, price_sol FROM trades WHERE run_id = ${run.id} ORDER BY id DESC LIMIT 1`)[0];
+  const px0 = Number(t?.price_sol ?? 0.0001);
+  const now0 = Date.now();
+  const values = Array.from({ length: 11 }, (_, i) =>
+    `(${run.id}, ${now0 - (i + 2) * 60000}, 'buy', '${t.mint}', '${t.symbol}', ${(0.2 / px0).toFixed(4)}, ${px0}, 0.2, 0.002, NULL)`,
+  ).join(",");
+  await sql.query(
+    `INSERT INTO trades(run_id, ts, side, mint, symbol, qty, price_sol, sol_amount, fee_sol, pnl_sol) VALUES ${values}`,
+  );
+  await sql`UPDATE runs SET trade_count = 12 WHERE id = ${run.id}`;
+
+  // the rip
+  pump = { mint: star.mint, t0: Date.now(), ms: pumpMs, mult };
+  await page.evaluate((p0, ms, x) => window.__pumpChart(p0, ms, x), star.priceUsd, pumpMs, mult);
+  if (rides === "long") {
+    await moveTo(700, 640, 800);
+    await moveTo(1000, 520, 1300);
+    await moveTo(1280, 420, 1500);
+    const posRow = await page.evaluate(() => {
+      const r = [...document.querySelectorAll(".token-row")][0]?.getBoundingClientRect();
+      return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+    });
+    if (posRow) await moveTo(posRow.x, posRow.y, 700);
+    await sleep(1600);
+    await moveTo(1745, 600, 800);
+    await sleep(Math.max(0, pump.t0 + pumpMs - Date.now()) + 300);
+  } else {
+    await moveTo(900, 560, 900);
+    await moveTo(1250, 430, 1400);
+    await sleep(Math.max(0, pump.t0 + pumpMs - Date.now()) + 250);
+  }
+
+  // SELL THE TOP — the bag visibly grows
+  await go("sell", "button", 550, true);
+  await sleep(700); // "you receive X SOL" breathes
+  await go("sell 100", "button", 550);
+  await sleep(1100); // fill flash, cash jumps
+  await moveTo(1655, 600, 700); // eyes on EQUITY, now fat
+  await sleep(1100);
+  doneFactor.set(star.mint, mult);
+  pump = null;
+
+  // claim the pass
+  await go("secure pass", "button", 650);
+  await sleep(1700); // celebration
+};
+
+// ── pre-warm the DexScreener charts ──────────────────────────────────────
+// The first embed load in a fresh browser takes seconds ("Loading pair…" on
+// camera — the one thing this film must never show). Load each star's embed
+// once BEFORE recording so assets and pair data sit in the browser cache.
+for (const s of stars) {
+  const prof = await fetch(BASE + "/api/token/" + s.mint).then((r) => r.json()).catch(() => null);
+  if (!prof?.chartPair) continue;
+  await page
+    .goto(`https://dexscreener.com/solana/${prof.chartPair}?embed=1&theme=light&chartTheme=light&trades=0&info=0`, {
+      waitUntil: "networkidle2",
+      timeout: 30000,
+    })
+    .catch(() => {});
+  await sleep(1200);
+}
+
 // ── action ──
 await page.goto(BASE + "/", { waitUntil: "networkidle2", timeout: 60000 }).catch(() => {});
 const rec = await page.screencast({ path: "video/public/demo-short.webm" });
+recStart = Date.now();
 await page.evaluate(() => window.__curTo(960, 700, 0));
-await sleep(1900); // hero kinetic type plays
+await sleep(1700); // hero plays
 
-await go("Start challenge 01", "a,button", 700);
-await sleep(1600); // /enter
+await go("Start challenge 01", "a,button", 650);
+await sleep(1400);
+await go("play free", "button", 600);
+await sleep(1300);
+// paid track from the first frame of the terminal — the story is the $300
+const seat = (await sql`SELECT id FROM runs WHERE wallet = ${wallet} AND status='active' ORDER BY id DESC LIMIT 1`)[0];
+if (seat) await sql`UPDATE runs SET tier='paid' WHERE id=${seat.id}`;
+await sleep(1300); // receipt finishes → terminal
 
-await go("play free", "button", 650);
-await sleep(2800); // receipt prints → terminal
-
-// rules gate: one beat, then take the desk
 const rulesBtn = await findBox("take the desk");
-await sleep(800);
-await moveTo(rulesBtn.x, rulesBtn.y, 600);
+await sleep(700);
+await moveTo(rulesBtn.x, rulesBtn.y, 550);
 await click();
+await sleep(800);
+mark("seated");
+
+await playChallenge(stars[0], 0, { mult: 2.9, pumpMs: 7000, chartWait: 3600, rides: "long" });
+await go("start challenge 02", "button", 600);
 await sleep(900);
+mark("ch1_done");
 
-// pick the star token (type to find it, fast)
-const search = await page.evaluate(() => {
-  const el = document.querySelector('input[placeholder*="search token"]');
-  const r = el?.getBoundingClientRect();
-  return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
-});
-if (search) {
-  await moveTo(search.x, search.y, 550);
-  await click();
-  await page.keyboard.type(star.symbol, { delay: 70 });
-  await sleep(600);
-}
-const row = await page.evaluate(() => {
-  const r = [...document.querySelectorAll(".token-row")][0]?.getBoundingClientRect();
-  return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
-});
-if (row) { await moveTo(row.x, row.y, 550); await click(); }
-await sleep(3400); // the real chart gets the screen
+await playChallenge(stars[1], 1, { mult: 4.2, pumpMs: 5000, chartWait: 1800, rides: "short" });
+await go("start challenge 03", "button", 600);
+await sleep(900);
+mark("ch2_done");
 
-// buy MAX — the money story needs a position that moves the needle
-await go("max", "button", 600);
-await go("buy ", "button", 550);
-await sleep(1400); // fill lands
+await playChallenge(stars[2], 2, { mult: 7.5, pumpMs: 5000, chartWait: 1800, rides: "short" });
+mark("won");
 
-// stage set silently: paid track + fills quota, so every label reads $300
-const run = (await sql`SELECT id FROM runs WHERE wallet = ${wallet} AND status = 'active' ORDER BY id DESC LIMIT 1`)[0];
-const t = (await sql`SELECT mint, symbol, price_sol FROM trades WHERE run_id = ${run.id} ORDER BY id DESC LIMIT 1`)[0];
-const px = Number(t?.price_sol ?? 0.0001);
-const now0 = Date.now();
-const values = Array.from({ length: 11 }, (_, i) =>
-  `(${run.id}, ${now0 - (i + 2) * 60000}, 'buy', '${t.mint}', '${t.symbol}', ${(0.2 / px).toFixed(4)}, ${px}, 0.2, 0.002, NULL)`,
-).join(",");
-await sql.query(
-  `INSERT INTO trades(run_id, ts, side, mint, symbol, qty, price_sol, sol_amount, fee_sol, pnl_sol) VALUES ${values}`,
-);
-await sql`UPDATE runs SET tier='paid', trade_count=12 WHERE id=${run.id}`;
-
-// ── THE POINT: the chart rips and every number climbs with it ──
-pumpT0 = Date.now();
-await page.evaluate((p0, ms, x) => window.__pump(p0, ms, x), star.priceUsd, PUMP_MS, PUMP_X);
-// ride the slope like a trader watching it print
-await moveTo(700, 640, 900);
-await moveTo(1000, 520, 1500);
-await moveTo(1280, 420, 1700);
-// hover the position in the list — the green pnl % is climbing live
-const posRow = await page.evaluate(() => {
-  const r = [...document.querySelectorAll(".token-row")][0]?.getBoundingClientRect();
-  return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
-});
-if (posRow) await moveTo(posRow.x, posRow.y, 800);
-await sleep(2100);
-// and the equity/target side — the bar filling toward PASS
-await moveTo(1745, 600, 900);
-await sleep(2400); // pump tops out ~2.7×, numbers hold
-
-// compress the ladder: the run becomes challenge 03 with the target beaten —
-// the cursor only has to SECURE it on camera
-await sql`UPDATE runs SET phase=2, cash_sol=31 WHERE id=${run.id}`;
-
-// the poll throws the "2/3 DOWN" celebration first — acknowledge, then win
-await go("start challenge 03", "button", 700);
-await sleep(1100);
-await go("secure pass", "button", 750);
-await sleep(3800); // $300 WIN overlay — the money shot
+// the win overlay is up — payout queued. Seconds later the money lands.
+await sleep(1200);
+const fakeSig = bs58.encode(crypto.randomBytes(64));
+await sql`UPDATE withdrawals SET status='paid', paid_at=${Date.now()}, tx_sig=${fakeSig}
+          WHERE wallet = 'demo-blocked' AND status IN ('pending','paying','blocked')`;
+const payoutBox = await findBox("payout", "div,p,span", 20).catch(() => null);
+if (payoutBox) await moveTo(payoutBox.x, payoutBox.y, 700);
+await sleep(5600); // the 5s poll flips the card to "✓ $300.00 sent"
+await moveTo(960, 570, 600);
+await sleep(2200); // hold the receipt
+mark("end");
 
 await rec.stop();
 await b.close();
 
-// SAFETY: the win queued a REAL $300 payout to this throwaway wallet —
-// remove everything so a funded hot wallet can never pay it
-await sql`DELETE FROM withdrawals WHERE wallet = ${wallet}`;
+// cleanup: the film account leaves no trace the payout system could touch
+await sql`DELETE FROM withdrawals WHERE wallet IN (${wallet}, 'demo-blocked')`;
 await sql`DELETE FROM positions WHERE run_id IN (SELECT id FROM runs WHERE wallet = ${wallet})`;
 await sql`DELETE FROM trades WHERE run_id IN (SELECT id FROM runs WHERE wallet = ${wallet})`;
 await sql`DELETE FROM runs WHERE wallet = ${wallet}`;
+await sql`DELETE FROM users WHERE wallet = ${wallet}`;
 console.log("demo-short.webm recorded, demo account cleaned");
 process.exit(0);

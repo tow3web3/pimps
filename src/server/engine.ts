@@ -475,8 +475,14 @@ export async function clientState(wallet: string) {
       `) as Row[])
     : [];
 
+  // prize rows live under the PAYOUT destination when one is attached (email
+  // accounts) — looking only under the session wallet would show a paid prize
+  // as eternally "queued"
   const withdrawals = (await sql`
-    SELECT * FROM withdrawals WHERE wallet = ${wallet} ORDER BY id DESC LIMIT 20
+    SELECT * FROM withdrawals
+    WHERE wallet = ${wallet}
+       OR wallet = (SELECT payout_wallet FROM users WHERE wallet = ${wallet} AND payout_wallet IS NOT NULL)
+    ORDER BY id DESC LIMIT 20
   `) as Row[];
 
   const last = await lastChallenge(wallet);
