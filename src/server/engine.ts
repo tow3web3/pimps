@@ -333,10 +333,33 @@ export async function securePass(wallet: string): Promise<void> {
     await sql`
       INSERT INTO withdrawals(wallet, run_id, profit_usd, payout_usd, status, requested_at, payable_at)
       SELECT COALESCE((SELECT payout_wallet FROM users WHERE wallet = ${wallet}), ${wallet}),
-             ${run.id}, ${prizeUsd}, ${prizeUsd}, 'pending', ${now}, ${now + 24 * 3600_000}
+             ${run.id}, ${prizeUsd}, ${prizeUsd}, 'pending', ${now}, ${now}
       WHERE NOT EXISTS (SELECT 1 FROM withdrawals WHERE run_id = ${run.id})
     `;
+    // the money moves NOW: kick the payout processor without holding the
+    // user's response hostage. The cron route owns claiming, caps and
+    // idempotency, so this trigger is always safe to fire.
+    triggerPayoutsSoon();
   }
+}
+
+/** fire-and-forget poke at the payout processor (survives on Vercel via waitUntil) */
+function triggerPayoutsSoon(): void {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return;
+  const base =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3333");
+  const job = fetch(`${base}/api/cron/payouts`, {
+    headers: { authorization: `Bearer ${secret}` },
+  })
+    .then(() => {})
+    .catch(() => {});
+  import("@vercel/functions")
+    .then(({ waitUntil }) => waitUntil(job))
+    .catch(() => {
+      /* not on Vercel — the persistent node process finishes the fetch */
+    });
 }
 
 /** deprecated: the funded-account withdrawal model is replaced by a fixed prize

@@ -346,7 +346,7 @@ export default async function Whitepaper() {
           <div className="glass p-5 mt-5">
             <Row k="prize" v={`fixed: $${RULES.freeRewardUsd} (free) or $${fundedAccountUsd()} (paid)`} />
             <Row k="destination" v="the wallet you signed in with" />
-            <Row k="safety delay" v="24h between winning and payment" />
+            <Row k="payment trigger" v="automatic, the moment challenge 03 is secured" />
             <Row k="daily ceiling" v="configurable cap on automated payouts per rolling 24h" />
             <Row k="idempotent" v="one prize per winning run, guarded by the run id" />
           </div>

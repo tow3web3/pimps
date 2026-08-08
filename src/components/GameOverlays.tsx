@@ -180,7 +180,7 @@ export default function GameOverlays() {
             <p className="mono text-[10px] text-[var(--ink-3)] mt-1.5">
               {paid
                 ? "usdc delivered to your wallet"
-                : "paid automatically to your wallet after a 24h safety window"}
+                : "payout fires automatically — usually in your wallet within minutes"}
             </p>
             {game.prize?.txSig && (
               <a
