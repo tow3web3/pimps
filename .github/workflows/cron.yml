@@ -1,0 +1,32 @@
+# The site's clock, hosted where the code already lives — no third-party
+# account needed. Two beats: the fast one keeps prices fresh and sweeps any
+# payout the instant-trigger missed; the slow one prunes.
+name: cron
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # fast beat — universe + payouts
+    - cron: "17 * * * *"    # hourly beat — maintenance
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: universe + payouts (every 5 min)
+        if: github.event.schedule != '17 * * * *'
+        run: |
+          curl -sf -m 60 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/universe" | head -c 200; echo
+          curl -sf -m 60 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/payouts" | head -c 200; echo
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
+      - name: maintenance (hourly)
+        if: github.event.schedule == '17 * * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -sf -m 60 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/maintenance" | head -c 200; echo
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
