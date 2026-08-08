@@ -39,7 +39,7 @@ const SORTS: Record<SortKey, (a: import("@/lib/types").TokenInfo, b: import("@/l
   // what's trading RIGHT NOW — 5-minute volume, the DexScreener trending feel
   hot: (a, b) => (b.vol5mUsd ?? 0) - (a.vol5mUsd ?? 0),
   // freshest crossers of the $100K floor — maximum volatility lives here
-  crossed: (a, b) => (b.firstSeenAt ?? 0) - (a.firstSeenAt ?? 0),
+  crossed: (a, b) => (b.crossedAt ?? 0) - (a.crossedAt ?? 0),
   vol: (a, b) => b.vol24Usd - a.vol24Usd,
   mcap: (a, b) => b.mcapUsd - a.mcapUsd,
   chg24h: (a, b) => b.chg24h - a.chg24h,
@@ -53,7 +53,7 @@ function fmtAge(h?: number): string {
 }
 
 export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
-  const { tokens, universe, selected, select, universeLoaded } = useMarket();
+  const { tokens, universe, selected, select, universeLoaded, lastTick } = useMarket();
   const positions = useGame((s) => s.positions);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("hot");
@@ -71,6 +71,14 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
       .filter((t) => looksLegitMarket(t));
     if (minMcap > 0) list = list.filter((t) => t.mcapUsd >= minMcap);
     if (minVol > 0) list = list.filter((t) => t.vol24Usd >= minVol);
+    // "just crossed" is a FILTER, not just an order: only tokens whose actual
+    // $100K crossing was witnessed in the last 24h — late discoveries of
+    // long-standing large caps never show here. lastTick is the 1s market
+    // clock, a pure stand-in for "now".
+    if (sort === "crossed") {
+      const cutoff = lastTick - 24 * 3600_000;
+      list = list.filter((t) => (t.crossedAt ?? 0) > cutoff);
+    }
     if (q.trim()) {
       const needle = q.trim().toLowerCase();
       list = list.filter(
@@ -89,7 +97,7 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
       if (t) list = [t, ...list];
     }
     return [...list].sort(SORTS[sort]);
-  }, [tokens, universe, positions, q, sort, minMcap, minVol]);
+  }, [tokens, universe, positions, q, sort, minMcap, minVol, lastTick]);
 
   return (
     <div className="glass flex flex-col h-full min-h-0 overflow-hidden">
@@ -154,7 +162,11 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
           </div>
         )}
         {universeLoaded && rows.length === 0 && (
-          <p className="mono text-xs text-[var(--ink-3)] p-4">no token matches</p>
+          <p className="mono text-xs text-[var(--ink-3)] p-4">
+            {sort === "crossed"
+              ? "no fresh $100K crossers spotted yet — they appear the moment one breaks the line"
+              : "no token matches"}
+          </p>
         )}
         {(() => {
           const renderRow = (t: import("@/lib/types").TokenInfo) => {
@@ -198,11 +210,11 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
                             5m {fmtCompact(t.vol5mUsd ?? 0)} ·{" "}
                           </span>
                         )}
-                        {sort === "crossed" && t.firstSeenAt && (
+                        {sort === "crossed" && t.crossedAt && (
                           <span className="text-[var(--heat-deep)]">
                             crossed{" "}
                             {(() => {
-                              const m = Math.floor((Date.now() - t.firstSeenAt) / 60_000);
+                              const m = Math.floor((Date.now() - t.crossedAt) / 60_000);
                               return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
                             })()}{" "}
                             ·{" "}

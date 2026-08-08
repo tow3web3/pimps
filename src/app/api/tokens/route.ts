@@ -3,6 +3,13 @@ import { looksLegitMarket, RULES } from "@/lib/rules";
 import { ensureSchema, kvGet, kvSet } from "@/server/sql";
 import { replaceEligible } from "@/server/eligibility";
 import { seedPairs } from "@/server/priceHub";
+import {
+  belowFloor,
+  crossingStamp,
+  noteBelowFloor,
+  pruneBelowFloor,
+  restoreBelowFloor,
+} from "@/server/crossing";
 import type { TokenInfo } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -20,14 +27,12 @@ const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 // Results merge into a ROLLING UNION: partial sweeps grow the universe, and a
 // token only leaves after 30min unseen. Rate limits degrade freshness, never
 // the terminal.
-const TTL = 90_000;
 const UNSEEN_EXPIRY = 30 * 60_000;
 // measured 2026-08-05: ~1050 pump.fun mints sit above the $100K floor —
 // the cap must stay comfortably above the real population
 const MAX_TOKENS = 1200;
 
 let cache: { at: number; body: { tokens: TokenInfo[]; solUsd: number } } | null = null;
-let inflight: Promise<{ tokens: TokenInfo[]; solUsd: number }> | null = null;
 const seen = new Map<string, { info: TokenInfo; reserve: number; lastSeen: number }>();
 let lastSolUsd = 0;
 let rotation = 0;
@@ -43,11 +48,24 @@ async function restoreSnapshot() {
   try {
     const raw = await kvGet("universe");
     if (!raw) return;
-    const snap = JSON.parse(raw) as { tokens: TokenInfo[]; solUsd: number };
+    const snap = JSON.parse(raw) as {
+      tokens: TokenInfo[];
+      solUsd: number;
+      below?: [string, number][];
+    };
     const now = Date.now();
+    // the below-floor memory must survive instance churn, or every crossing
+    // witnessed by a dead instance is forgotten
+    restoreBelowFloor(snap.below);
     for (const t of snap.tokens ?? []) {
       seen.set(t.mint, {
-        info: { ...t, firstSeenAt: t.firstSeenAt ?? now },
+        info: {
+          ...t,
+          firstSeenAt: t.firstSeenAt ?? now,
+          // bootstrap: snapshots written before crossing detection existed
+          // still get honest stamps for tokens hugging the floor
+          crossedAt: crossingStamp(t.mint, t.mcapUsd, t, now),
+        },
         reserve: t.liqUsd,
         lastSeen: now,
       });
@@ -55,12 +73,12 @@ async function restoreSnapshot() {
     lastSolUsd = snap.solUsd ?? 0;
     if (snap.tokens?.length) {
       // the stored snapshot predates whatever floors exist today — re-apply
-      const kept = snap.tokens
+      const kept = [...seen.values()]
+        .map((x) => x.info)
         .filter(
           (t) =>
             t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd && looksLegitMarket(t),
-        )
-        .map((t) => ({ ...t, firstSeenAt: t.firstSeenAt ?? now }));
+        );
       replaceEligible(kept.map((t) => t.mint));
       cache = { at: Date.now(), body: { tokens: kept, solUsd: lastSolUsd } };
     }
@@ -74,6 +92,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function mergeInfo(info: TokenInfo, reserve: number) {
   const now = Date.now();
   const prev = seen.get(info.mint);
+  const crossedAt = crossingStamp(info.mint, info.mcapUsd, prev?.info, now);
   if (prev && prev.reserve > reserve && now - prev.lastSeen < UNSEEN_EXPIRY) {
     // keep the deepest known pool as the pricing pool, refresh market numbers
     seen.set(info.mint, {
@@ -82,13 +101,14 @@ function mergeInfo(info: TokenInfo, reserve: number) {
         pairAddress: prev.info.pairAddress,
         liqUsd: prev.info.liqUsd,
         firstSeenAt: prev.info.firstSeenAt ?? now,
+        crossedAt,
       },
       reserve: prev.reserve,
       lastSeen: now,
     });
   } else {
     seen.set(info.mint, {
-      info: { ...info, firstSeenAt: prev?.info.firstSeenAt ?? now },
+      info: { ...info, firstSeenAt: prev?.info.firstSeenAt ?? now, crossedAt },
       reserve,
       lastSeen: now,
     });
@@ -112,9 +132,13 @@ async function buildUniverse(): Promise<{ tokens: TokenInfo[]; solUsd: number }>
     .sort((x, y) => y.vol24Usd - x.vol24Usd)
     .slice(0, MAX_TOKENS);
   replaceEligible(tokens.map((t) => t.mint));
+  pruneBelowFloor();
   if (tokens.length > 0) {
     await seedPairs(tokens.slice(0, 30).map((t) => t.pairAddress)).catch(() => {});
-    await kvSet("universe", JSON.stringify({ tokens, solUsd: lastSolUsd })).catch(() => {});
+    await kvSet(
+      "universe",
+      JSON.stringify({ tokens, solUsd: lastSolUsd, below: [...belowFloor] }),
+    ).catch(() => {});
   }
   return { tokens, solUsd: lastSolUsd };
 }
@@ -177,7 +201,9 @@ async function sweepPumpfun(maxChunks = 999): Promise<number> {
     const page = await pumpfunPage(offset);
     if (page.length === 0) break;
     for (const c of page) {
-      if ((c.usd_market_cap ?? 0) >= RULES.minMcapUsd && c.mint) coins.push(c);
+      if (!c.mint) continue;
+      if ((c.usd_market_cap ?? 0) >= RULES.minMcapUsd) coins.push(c);
+      else noteBelowFloor(c.mint, c.usd_market_cap ?? 0);
     }
     const tail = page[page.length - 1];
     if ((tail?.usd_market_cap ?? 0) < RULES.minMcapUsd) break;
@@ -186,29 +212,41 @@ async function sweepPumpfun(maxChunks = 999): Promise<number> {
   return enrichAndMerge(coins, maxChunks);
 }
 
-/** cheap probe: the newest coins — catches graduates crossing the floor */
+/** cheap probe: the newest coins — catches graduates crossing the floor.
+ *  This page is also the ONLY view of coins still below the floor (the mcap
+ *  listing is cut around $150K), so it feeds the crossing detector's watch. */
 async function sweepFresh(): Promise<number> {
   const page = await pumpfunPage(0, "created_timestamp");
+  for (const c of page) {
+    if (c.mint) noteBelowFloor(c.mint, c.usd_market_cap ?? 0);
+  }
   const coins = page.filter((c) => (c.usd_market_cap ?? 0) >= RULES.minMcapUsd && c.mint);
   return enrichAndMerge(coins);
 }
-
-let walkCounter = 0;
 
 /** DexScreener enrichment shared by both sweeps, 30 mints per call.
  *  `maxChunks` bounds the work so a serverless invocation cannot time out —
  *  the rotation makes successive runs cover the rest. */
 async function enrichAndMerge(coins: PfCoin[], maxChunks = 999): Promise<number> {
   if (coins.length === 0) return 0;
-  const byMint = new Map(coins.map((c) => [c.mint, c]));
+  // ASCENDING mcap: the floor region — where crossings happen and data goes
+  // stale fastest — leads the batch; the giants ride the price hub anyway
+  const byMint = new Map(
+    [...coins]
+      .sort((a, b) => (a.usd_market_cap ?? 0) - (b.usd_market_cap ?? 0))
+      .map((c) => [c.mint, c]),
+  );
   let merged = 0;
   const mints = [...byMint.keys()];
   const chunks: string[][] = [];
   for (let i = 0; i < mints.length; i += 30) chunks.push(mints.slice(i, i + 30));
   // ROTATE the processing order each walk — if the tail of the batch hits the
   // rate limiter, it must be a different tail every time, so the rolling
-  // union converges to full coverage instead of keeping a systematic hole
-  const shift = chunks.length > 0 ? walkCounter++ % chunks.length : 0;
+  // union converges to full coverage instead of keeping a systematic hole.
+  // The shift derives from WALL-CLOCK, not module state: serverless instances
+  // reset counters every invocation, which silently froze the old rotation on
+  // the same first chunks forever.
+  const shift = chunks.length > 0 ? Math.floor(Date.now() / 300_000) % chunks.length : 0;
   const ordered = [...chunks.slice(shift), ...chunks.slice(0, shift)].slice(0, maxChunks);
 
   for (const chunk of ordered) {
@@ -378,7 +416,15 @@ export async function runUniverseSweep(full: boolean): Promise<number> {
   await restoreSnapshot();
   let merged = 0;
   try {
-    merged = full ? await sweepPumpfun(12) : await sweepFresh();
+    if (full) {
+      // the fresh probe rides along EVERY sweep: pump.fun's mcap listing is
+      // cut around $150K, so the newest-coins page is the only view of coins
+      // below the floor — without it the crossing detector is blind
+      await sweepFresh().catch(() => {});
+      merged = await sweepPumpfun(12);
+    } else {
+      merged = await sweepFresh();
+    }
   } catch {
     merged = 0;
   }
@@ -386,6 +432,11 @@ export async function runUniverseSweep(full: boolean): Promise<number> {
     await sweepGecko().catch(() => {});
   }
   const built = await buildUniverse();
+  // the cron log line that tells the whole story of a sweep at a glance
+  const crossed = built.tokens.filter((t) => t.crossedAt).length;
+  console.log(
+    `[universe] ${full ? "full" : "fresh"} sweep: merged ${merged}, universe ${built.tokens.length}, crossers ${crossed}, below-floor watch ${belowFloor.size}`,
+  );
   return built.tokens.length;
 }
 

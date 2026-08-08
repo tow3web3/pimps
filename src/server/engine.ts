@@ -186,7 +186,8 @@ export async function buy(wallet: string, mint: string, solAmount: number): Prom
   if (run.status !== "active") throw new Error("run is not active");
 
   const positions = await positionsOf(run.id);
-  const { marks } = await getMarks([mint, ...positions.map((p) => p.mint)]);
+  // fills NEVER price off a cache — the mark is fetched live at this instant
+  const { marks } = await getMarks([mint, ...positions.map((p) => p.mint)], { fresh: true });
   const mark = marks[mint];
   if (!mark) throw new Error("no live market for this token");
   // provenance: either the universe sweep vouches for it (pump.fun's own
@@ -251,7 +252,7 @@ export async function sell(wallet: string, mint: string, fraction: number): Prom
   const f = Math.min(1, Math.max(0, fraction));
   if (f <= 0) throw new Error("nothing to sell");
 
-  const { marks } = await getMarks([mint]);
+  const { marks } = await getMarks([mint], { fresh: true });
   const mark = marks[mint];
   if (!mark) throw new Error("no live market for this token");
 
@@ -285,7 +286,8 @@ export async function securePass(wallet: string): Promise<void> {
   if (run.trade_count < RULES.minTrades) throw new Error("minimum fills not reached");
 
   const positions = await positionsOf(run.id);
-  const { marks, solUsd } = await getMarks(positions.map((p) => p.mint));
+  // the pass liquidation is a fill too — live marks, no cache
+  const { marks, solUsd } = await getMarks(positions.map((p) => p.mint), { fresh: true });
 
   let cash = run.cash_sol;
   for (const p of positions) {

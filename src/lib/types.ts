@@ -23,6 +23,10 @@ export interface TokenInfo {
   /** when this token FIRST crossed into the universe (≥$100K + real volume).
       The freshest crossers carry the most volatility. */
   firstSeenAt?: number;
+  /** when the token GENUINELY crossed the $100K floor — either observed below
+      it beforehand, or first sighted hugging the line (≤2× floor). Unset for
+      tokens discovered late at a high cap: those did NOT "just cross". */
+  crossedAt?: number;
 }
 
 export interface Candle {
