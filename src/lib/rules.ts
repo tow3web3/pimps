@@ -42,6 +42,20 @@ export const RULES = {
       its price can be walked around. Filtered out of the universe. */
   minVol24Usd: 50_000,
 
+  /** Anti-manipulation heuristics — the rugger signature is an enormous
+      mcap over a thin book: almost no liquidity AND almost no turnover
+      relative to the cap. Either alone can be innocent; together they mean
+      the price was walked up an empty book. */
+  rug: {
+    minLiqUsd: 15_000,
+    /** suspect when liquidity < 1.5% of mcap… */
+    minLiqToMcap: 0.015,
+    /** …unless real turnover proves the market (vol24 ≥ 5% of mcap) */
+    volRescueToMcap: 0.05,
+    /** a token detonating right now leaves the buy list */
+    maxCrash1h: -80,
+  },
+
   /** And only if it was minted through pump.fun (mint address suffix check) */
   pumpSuffix: "pump",
 
@@ -76,3 +90,23 @@ export const fundedAccountUsd = () => RULES.entryFeeUsd * RULES.fundedMultiple;
 
 /** entry price when paid in DGN, after the holder discount */
 export const entryFeeGfUsd = () => RULES.entryFeeUsd * (1 - RULES.token.discount);
+
+/** the anti-manipulation gate — shared by the universe, the token list and
+    the fill engine so no surface can disagree */
+export function looksLegitMarket(t: {
+  mcapUsd: number;
+  liqUsd: number;
+  vol24Usd?: number;
+  chg1h?: number;
+}): boolean {
+  if (t.liqUsd < RULES.rug.minLiqUsd) return false;
+  if ((t.chg1h ?? 0) <= RULES.rug.maxCrash1h) return false;
+  const liqRatio = t.mcapUsd > 0 ? t.liqUsd / t.mcapUsd : 0;
+  // legacy rows without volume data can't be judged on turnover — the
+  // liquidity-ratio arm alone then decides
+  const volRatio =
+    t.mcapUsd > 0 && t.vol24Usd !== undefined ? t.vol24Usd / t.mcapUsd : Infinity;
+  // painted cap: huge valuation, no depth AND no turnover
+  if (liqRatio < RULES.rug.minLiqToMcap && volRatio < RULES.rug.volRescueToMcap) return false;
+  return true;
+}

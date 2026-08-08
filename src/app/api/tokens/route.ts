@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { RULES } from "@/lib/rules";
+import { looksLegitMarket, RULES } from "@/lib/rules";
 import { ensureSchema, kvGet, kvSet } from "@/server/sql";
 import { replaceEligible } from "@/server/eligibility";
 import { seedPairs } from "@/server/priceHub";
@@ -56,7 +56,10 @@ async function restoreSnapshot() {
     if (snap.tokens?.length) {
       // the stored snapshot predates whatever floors exist today — re-apply
       const kept = snap.tokens
-        .filter((t) => t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd)
+        .filter(
+          (t) =>
+            t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd && looksLegitMarket(t),
+        )
         .map((t) => ({ ...t, firstSeenAt: t.firstSeenAt ?? now }));
       replaceEligible(kept.map((t) => t.mint));
       cache = { at: Date.now(), body: { tokens: kept, solUsd: lastSolUsd } };
@@ -102,7 +105,10 @@ async function buildUniverse(): Promise<{ tokens: TokenInfo[]; solUsd: number }>
     // the floors apply at SERVE time too: the rolling union deliberately
     // remembers old entries, so a token whose volume died (or a painted cap
     // that slipped in before the rule) must still fall out of the universe
-    .filter((t) => t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd)
+    .filter(
+      (t) =>
+        t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd && looksLegitMarket(t),
+    )
     .sort((x, y) => y.vol24Usd - x.vol24Usd)
     .slice(0, MAX_TOKENS);
   replaceEligible(tokens.map((t) => t.mint));

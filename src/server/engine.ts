@@ -9,7 +9,7 @@
 import { ensureSchema, sql, type Row } from "./sql";
 import { getMarks, type Mark } from "./prices";
 import { eligibleMints } from "./eligibility";
-import { CHALLENGE_MS, RULES } from "@/lib/rules";
+import { CHALLENGE_MS, looksLegitMarket, RULES } from "@/lib/rules";
 
 export interface RunRow {
   id: number;
@@ -196,6 +196,9 @@ export async function buy(wallet: string, mint: string, solAmount: number): Prom
   }
   if (mark.mcapUsd < RULES.minMcapUsd * 0.9) throw new Error("market cap below the floor");
   if (mark.liqUsd < 15_000) throw new Error("pool liquidity below the floor");
+  if (!looksLegitMarket(mark)) {
+    throw new Error("this market looks manipulated (painted cap over a thin book) — buys are blocked");
+  }
   if (solAmount < RULES.minOrderSol) throw new Error("order below minimum");
 
   const equity = equityOf(run, positions, marks);

@@ -13,6 +13,8 @@ export interface Mark {
   priceUsd: number;
   mcapUsd: number;
   liqUsd: number;
+  vol24Usd?: number;
+  chg1h?: number;
 }
 
 interface DsPair {

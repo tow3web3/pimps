@@ -87,7 +87,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ mint: stri
     graduated: !!pf.complete,
   };
 
-  cache.set(mint, { at: Date.now(), body });
+  // a missing chartPair usually means the DS lookup hiccuped — retry soon
+  // instead of pinning a blank chart for a full minute
+  const ttl = body.chartPair ? 60_000 : 5_000;
+  cache.set(mint, { at: Date.now() - (60_000 - ttl), body });
   if (cache.size > 300) {
     const oldest = [...cache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
     if (oldest) cache.delete(oldest[0]);

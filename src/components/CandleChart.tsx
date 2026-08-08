@@ -25,6 +25,15 @@ export default function CandleChart({
   const [chartPair, setChartPair] = useState<string | null | undefined>(undefined);
   const [frameLoaded, setFrameLoaded] = useState(false);
 
+  // the load event is best-effort ONLY: if it's missed (fast cache, event
+  // fired before React attached), the chart must still appear — otherwise it
+  // sits loaded at opacity 0 until the user clicks away and back
+  useEffect(() => {
+    if (typeof chartPair !== "string" || frameLoaded) return;
+    const t = setTimeout(() => setFrameLoaded(true), 2000);
+    return () => clearTimeout(t);
+  }, [chartPair, frameLoaded]);
+
   // give the browser a head start on dexscreener's origin
   useEffect(() => {
     if (document.querySelector('link[data-ds-preconnect]')) return;
@@ -49,8 +58,8 @@ export default function CandleChart({
     const cacheKey = `dsPair:${mint}`;
     try {
       const hit = sessionStorage.getItem(cacheKey);
-      if (hit) {
-        setChartPair(hit === "none" ? (pairAddress || null) : hit);
+      if (hit && hit !== "none") {
+        setChartPair(hit);
         return;
       }
     } catch {
@@ -66,10 +75,14 @@ export default function CandleChart({
             const pair = j?.chartPair ?? null;
             if (!stop) {
               setChartPair(pair ?? pairAddress ?? null);
-              try {
-                sessionStorage.setItem(cacheKey, pair ?? "none");
-              } catch {
-                /* fine */
+              // only remember REAL pairs — caching a transient null would
+              // stick a broken chart for the whole session
+              if (pair) {
+                try {
+                  sessionStorage.setItem(cacheKey, pair);
+                } catch {
+                  /* fine */
+                }
               }
             }
             return;

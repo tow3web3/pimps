@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useMarket } from "@/lib/market";
 import { useGame } from "@/lib/store";
 import { fmtCompact, fmtPct, fmtUsd } from "@/lib/format";
-import { RULES } from "@/lib/rules";
+import { looksLegitMarket, RULES } from "@/lib/rules";
 
 function TokenIcon({ url, symbol, size = 26 }: { url?: string; symbol: string; size?: number }) {
   if (url) {
@@ -63,7 +63,12 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
   const heldMints = useMemo(() => new Set(positions.map((p) => p.mint)), [positions]);
 
   const rows = useMemo(() => {
-    let list = universe.map((m) => tokens[m]).filter(Boolean);
+    let list = universe
+      .map((m) => tokens[m])
+      .filter(Boolean)
+      // live anti-manipulation: the 1s marks catch a rug the moment it
+      // detonates — held positions are re-added below so exits always work
+      .filter((t) => looksLegitMarket(t));
     if (minMcap > 0) list = list.filter((t) => t.mcapUsd >= minMcap);
     if (minVol > 0) list = list.filter((t) => t.vol24Usd >= minVol);
     if (q.trim()) {
