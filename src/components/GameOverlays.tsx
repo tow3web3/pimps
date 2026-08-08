@@ -195,8 +195,9 @@ export default function GameOverlays() {
           </div>
           <AttachWallet paid={paid} />
           <p className="mono text-[10px] text-[var(--ink-3)] mt-4">
-            {RULES.fundedMultiple}x your {fmtUsd(RULES.entryFeeUsd)} entry · payouts are simulated in
-            this preview build
+            {isFree
+              ? "your free roll, turned into real money — paid in usdc"
+              : `${RULES.fundedMultiple}x your ${fmtUsd(RULES.entryFeeUsd)} entry · paid in usdc, automatically`}
           </p>
           <div className="flex gap-2 mt-6">
             <Link href="/enter" className="btn btn-primary flex-1 py-3.5">

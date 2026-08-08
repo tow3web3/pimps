@@ -25,6 +25,32 @@ const Film: React.FC = () => (
 
 export const DEMO_FRAMES = 75 + VIDEO_FRAMES + 170;
 
+// ── the 30-second cut ────────────────────────────────────────────────────
+// Opens COLD on the real site (the landing hero is its own intro), plays the
+// tight take at 1.45× so the pacing feels like a trailer, closes on the CTA.
+const SHORT_SECONDS = 38.467; // measured from demo-short.webm
+const SHORT_RATE = 1.45;
+const SHORT_FILM_FRAMES = Math.ceil((SHORT_SECONDS / SHORT_RATE) * 30);
+export const SHORT_FRAMES = SHORT_FILM_FRAMES + 135;
+
+export const Short: React.FC = () => (
+  <Series>
+    <Series.Sequence durationInFrames={SHORT_FILM_FRAMES}>
+      <AbsoluteFill style={{ backgroundColor: "#131110" }}>
+        <OffthreadVideo
+          src={staticFile("demo-short.webm")}
+          muted
+          playbackRate={SHORT_RATE}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </AbsoluteFill>
+    </Series.Sequence>
+    <Series.Sequence durationInFrames={135}>
+      <Cta />
+    </Series.Sequence>
+  </Series>
+);
+
 export const Demo: React.FC = () => (
   <Series>
     <Series.Sequence durationInFrames={75}>
