@@ -46,14 +46,18 @@ async function restoreSnapshot() {
     const snap = JSON.parse(raw) as { tokens: TokenInfo[]; solUsd: number };
     const now = Date.now();
     for (const t of snap.tokens ?? []) {
-      seen.set(t.mint, { info: t, reserve: t.liqUsd, lastSeen: now });
+      seen.set(t.mint, {
+        info: { ...t, firstSeenAt: t.firstSeenAt ?? now },
+        reserve: t.liqUsd,
+        lastSeen: now,
+      });
     }
     lastSolUsd = snap.solUsd ?? 0;
     if (snap.tokens?.length) {
       // the stored snapshot predates whatever floors exist today — re-apply
-      const kept = snap.tokens.filter(
-        (t) => t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd,
-      );
+      const kept = snap.tokens
+        .filter((t) => t.mcapUsd >= RULES.minMcapUsd && t.vol24Usd >= RULES.minVol24Usd)
+        .map((t) => ({ ...t, firstSeenAt: t.firstSeenAt ?? now }));
       replaceEligible(kept.map((t) => t.mint));
       cache = { at: Date.now(), body: { tokens: kept, solUsd: lastSolUsd } };
     }
@@ -70,12 +74,21 @@ function mergeInfo(info: TokenInfo, reserve: number) {
   if (prev && prev.reserve > reserve && now - prev.lastSeen < UNSEEN_EXPIRY) {
     // keep the deepest known pool as the pricing pool, refresh market numbers
     seen.set(info.mint, {
-      info: { ...info, pairAddress: prev.info.pairAddress, liqUsd: prev.info.liqUsd },
+      info: {
+        ...info,
+        pairAddress: prev.info.pairAddress,
+        liqUsd: prev.info.liqUsd,
+        firstSeenAt: prev.info.firstSeenAt ?? now,
+      },
       reserve: prev.reserve,
       lastSeen: now,
     });
   } else {
-    seen.set(info.mint, { info, reserve, lastSeen: now });
+    seen.set(info.mint, {
+      info: { ...info, firstSeenAt: prev?.info.firstSeenAt ?? now },
+      reserve,
+      lastSeen: now,
+    });
   }
 }
 

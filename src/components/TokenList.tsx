@@ -33,11 +33,13 @@ function TokenIcon({ url, symbol, size = 26 }: { url?: string; symbol: string; s
 
 export { TokenIcon };
 
-type SortKey = "hot" | "vol" | "mcap" | "chg24h" | "new";
+type SortKey = "hot" | "crossed" | "vol" | "mcap" | "chg24h" | "new";
 
 const SORTS: Record<SortKey, (a: import("@/lib/types").TokenInfo, b: import("@/lib/types").TokenInfo) => number> = {
   // what's trading RIGHT NOW — 5-minute volume, the DexScreener trending feel
   hot: (a, b) => (b.vol5mUsd ?? 0) - (a.vol5mUsd ?? 0),
+  // freshest crossers of the $100K floor — maximum volatility lives here
+  crossed: (a, b) => (b.firstSeenAt ?? 0) - (a.firstSeenAt ?? 0),
   vol: (a, b) => b.vol24Usd - a.vol24Usd,
   mcap: (a, b) => b.mcapUsd - a.mcapUsd,
   chg24h: (a, b) => b.chg24h - a.chg24h,
@@ -107,6 +109,7 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
             title="sort"
           >
             <option value="hot">🔥 hot · 5m vol</option>
+            <option value="crossed">🆕 just crossed 100k</option>
             <option value="vol">↓ vol 24h</option>
             <option value="mcap">↓ mcap</option>
             <option value="chg24h">↓ 24h %</option>
@@ -188,6 +191,16 @@ export default function TokenList({ onPick }: { onPick?: () => void } = {}) {
                         {sort === "hot" && (t.vol5mUsd ?? 0) > 0 && (
                           <span className="text-[var(--heat-deep)]">
                             5m {fmtCompact(t.vol5mUsd ?? 0)} ·{" "}
+                          </span>
+                        )}
+                        {sort === "crossed" && t.firstSeenAt && (
+                          <span className="text-[var(--heat-deep)]">
+                            crossed{" "}
+                            {(() => {
+                              const m = Math.floor((Date.now() - t.firstSeenAt) / 60_000);
+                              return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
+                            })()}{" "}
+                            ·{" "}
                           </span>
                         )}
                         mc {fmtCompact(t.mcapUsd)}

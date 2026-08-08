@@ -20,6 +20,9 @@ export interface TokenInfo {
   chg24h: number;
   /** hours since the pool was created — 0 when unknown */
   ageHours?: number;
+  /** when this token FIRST crossed into the universe (≥$100K + real volume).
+      The freshest crossers carry the most volatility. */
+  firstSeenAt?: number;
 }
 
 export interface Candle {

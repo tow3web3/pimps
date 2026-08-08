@@ -9,6 +9,7 @@ import { create } from "zustand";
 import bs58 from "bs58";
 import { connectAndGetKey, getProvider, setPreferredWallet, withWalletTimeout } from "./payments";
 import { useGame } from "./store";
+import { useMarket } from "./market";
 
 interface AuthState {
   wallet: string | null;
@@ -23,6 +24,10 @@ export async function refreshServerState(): Promise<boolean> {
   const res = await fetch("/api/game/state");
   if (!res.ok) return false;
   useGame.getState().hydrateServer(await res.json());
+  // the server's equity snapshot is already seconds old — immediately re-mark
+  // against the live 1s prices so the HUD never steps backwards
+  const { tokens } = useMarket.getState();
+  useGame.getState().markToMarket(tokens);
   return true;
 }
 

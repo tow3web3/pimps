@@ -23,6 +23,19 @@ export default function CandleChart({
 }) {
   // undefined = resolving · null = dexscreener has no chart · string = pair
   const [chartPair, setChartPair] = useState<string | null | undefined>(undefined);
+  const [frameLoaded, setFrameLoaded] = useState(false);
+
+  // give the browser a head start on dexscreener's origin
+  useEffect(() => {
+    if (document.querySelector('link[data-ds-preconnect]')) return;
+    for (const href of ["https://dexscreener.com", "https://io.dexscreener.com"]) {
+      const l = document.createElement("link");
+      l.rel = "preconnect";
+      l.href = href;
+      l.setAttribute("data-ds-preconnect", "1");
+      document.head.appendChild(l);
+    }
+  }, []);
 
   useEffect(() => {
     if (!mint) {
@@ -31,14 +44,43 @@ export default function CandleChart({
     }
     let stop = false;
     setChartPair(undefined);
-    fetch(`/api/token/${mint}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!stop) setChartPair(j?.chartPair ?? pairAddress ?? null);
-      })
-      .catch(() => {
-        if (!stop) setChartPair(pairAddress || null);
-      });
+    setFrameLoaded(false);
+    // remember resolutions: switching back to a token must be instant
+    const cacheKey = `dsPair:${mint}`;
+    try {
+      const hit = sessionStorage.getItem(cacheKey);
+      if (hit) {
+        setChartPair(hit === "none" ? (pairAddress || null) : hit);
+        return;
+      }
+    } catch {
+      /* private mode */
+    }
+    // a transient API failure must not paint "no chart" — retry twice
+    (async () => {
+      for (let attempt = 0; attempt < 3 && !stop; attempt++) {
+        try {
+          const r = await fetch(`/api/token/${mint}`);
+          if (r.ok) {
+            const j = await r.json();
+            const pair = j?.chartPair ?? null;
+            if (!stop) {
+              setChartPair(pair ?? pairAddress ?? null);
+              try {
+                sessionStorage.setItem(cacheKey, pair ?? "none");
+              } catch {
+                /* fine */
+              }
+            }
+            return;
+          }
+        } catch {
+          /* retry */
+        }
+        await new Promise((res) => setTimeout(res, 800 * (attempt + 1)));
+      }
+      if (!stop) setChartPair(pairAddress || null);
+    })();
     return () => {
       stop = true;
     };
@@ -87,13 +129,24 @@ export default function CandleChart({
           </div>
         )}
         {typeof chartPair === "string" && (
-          <iframe
-            key={chartPair}
-            src={`https://dexscreener.com/solana/${chartPair}?embed=1&theme=light&chartTheme=light&trades=0&info=0`}
-            className="absolute inset-0 w-full h-full border-0"
-            allow="clipboard-write"
-            allowFullScreen
-          />
+          <>
+            {!frameLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="mono text-xs text-[var(--ink-3)] animate-pulse">
+                  loading live chart…
+                </span>
+              </div>
+            )}
+            <iframe
+              key={chartPair}
+              src={`https://dexscreener.com/solana/${chartPair}?embed=1&theme=light&chartTheme=light&trades=0&info=0`}
+              className="absolute inset-0 w-full h-full border-0"
+              style={{ opacity: frameLoaded ? 1 : 0, transition: "opacity 250ms ease" }}
+              onLoad={() => setFrameLoaded(true)}
+              allow="clipboard-write"
+              allowFullScreen
+            />
+          </>
         )}
       </div>
     </div>
