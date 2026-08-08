@@ -97,7 +97,14 @@ export async function gfMarketLive(mint: string): Promise<boolean> {
   }
 
   probeCache = { at: Date.now(), live };
-  if (live) await kvSet("gf:marketLive", "1");
+  if (live) {
+    await kvSet("gf:marketLive", "1");
+    // the mint exists now — correct the decimals from the chain in case the
+    // pre-launch default (6) was wrong. A silent mismatch would misprice
+    // every $GF entry by orders of magnitude.
+    const dec = await fetchMintDecimals(mint);
+    if (dec !== null) await kvSet("cfg:gfDecimals", String(dec));
+  }
   return live;
 }
 

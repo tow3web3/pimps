@@ -45,15 +45,12 @@ export async function POST(req: NextRequest) {
     // read decimals from the chain rather than assuming — a wrong value here
     // would misprice every entry by orders of magnitude
     const dec = await fetchMintDecimals(m);
-    if (dec === null) {
-      return NextResponse.json(
-        { error: "mint not found on-chain — check the address, or retry in a few seconds" },
-        { status: 400 },
-      );
-    }
+    // pre-launch flow: the CA can be stored BEFORE the coin exists. Decimals
+    // default to 6 (the pump.fun standard) and are re-read from the chain
+    // automatically the moment launch detection flips live.
     priceCheck = await gfPriceUsd(m);
     patch.gfMint = m;
-    patch.gfDecimals = dec;
+    patch.gfDecimals = dec ?? 6;
   }
 
   if (Object.keys(patch).length === 0) {
