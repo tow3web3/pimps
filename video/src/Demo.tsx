@@ -1,7 +1,7 @@
 // The demo film: a real cursor on the real site — sign in, take the free
 // seat, read the rules, buy, clear all three challenges, get the win screen.
 // The screencast is the whole story; Remotion adds only the hello and the CTA.
-import { AbsoluteFill, Freeze, OffthreadVideo, Series, staticFile } from "remotion";
+import { AbsoluteFill, Img, OffthreadVideo, Series, staticFile } from "remotion";
 import { Kinetic, Label, Mark, Paper } from "./bits";
 import { Cta } from "./Video";
 
@@ -52,10 +52,14 @@ export const Short: React.FC = () => (
     <Series.Sequence durationInFrames={SHORT_FILM_FRAMES}>
       <ShortFilm />
     </Series.Sequence>
+    {/* Freeze×OffthreadVideo mis-seeks — hold the win on an extracted still */}
     <Series.Sequence durationInFrames={SHORT_HOLD}>
-      <Freeze frame={SHORT_FILM_FRAMES - 1}>
-        <ShortFilm />
-      </Freeze>
+      <AbsoluteFill style={{ backgroundColor: "#131110" }}>
+        <Img
+          src={staticFile("win-hold.png")}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </AbsoluteFill>
     </Series.Sequence>
     <Series.Sequence durationInFrames={135}>
       <Cta />
